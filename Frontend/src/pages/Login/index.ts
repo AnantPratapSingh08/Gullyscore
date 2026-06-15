@@ -1,2 +1,2 @@
-// pages/Login/index.ts
-// Login page — entry point for the Login route
+// src/pages/Login/index.ts
+export { default as LoginPage } from './LoginPage'

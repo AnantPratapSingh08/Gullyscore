@@ -1,2 +1,2 @@
-// pages/Signup/index.ts
-// Signup page — entry point for the Signup/Register route
+// src/pages/Signup/index.ts
+export { default as SignupPage } from './SignupPage'

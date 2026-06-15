@@ -1,2 +1,4 @@
 // components/team/index.ts
-// Team-related components (TeamCard, TeamRoster, TeamStats, etc.)
+export { TeamCard }  from './TeamCard'
+export { TeamForm }  from './TeamForm'
+export { AppShell }  from './AppShell'

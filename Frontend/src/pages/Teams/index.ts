@@ -1,2 +1,5 @@
 // pages/Teams/index.ts
-// Teams page — browse, search, and manage teams
+export { default as TeamsPage }      from './TeamsPage'
+export { default as MyTeamsPage }    from './MyTeamsPage'
+export { default as CreateTeamPage } from './CreateTeamPage'
+export { default as TeamDetailPage } from './TeamDetailPage'

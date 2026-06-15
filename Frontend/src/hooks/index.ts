@@ -1,2 +1,3 @@
-// hooks/index.ts
-// Custom React hooks (useAuth, useMatch, usePlayers, useTeams, etc.)
+// src/hooks/index.ts
+// Custom React hooks
+export { useAuth } from '../context/AuthContext'
