@@ -17,8 +17,11 @@ import CreateTeamPage     from './pages/Teams/CreateTeamPage'
 import TeamDetailPage     from './pages/Teams/TeamDetailPage'
 import PlayersPage        from './pages/Players/PlayersPage'
 import PlayerDetailPage   from './pages/Players/PlayerDetailPage'
-import MatchesPage        from './pages/Matches/MatchesPage'
-import MatchDetailPage    from './pages/Matches/MatchDetailPage'
+import MatchesPage             from './pages/Matches/MatchesPage'
+import MatchDetailPage         from './pages/Matches/MatchDetailPage'
+import TournamentsPage         from './pages/Tournament/TournamentsPage'
+import TournamentSettingsPage  from './pages/Tournament/TournamentSettingsPage'
+import LiveScorePage           from './pages/LiveScore/LiveScorePage'
 import './App.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,8 +372,11 @@ function AppRoutes() {
         <Route path="/my-teams"               element={<MyTeamsPage />} />
         <Route path="/teams/:teamId/players"  element={<PlayersPage />} />
         <Route path="/players/:playerId"      element={<PlayerDetailPage />} />
-        <Route path="/matches"                element={<MatchesPage />} />
-        <Route path="/matches/:matchId"       element={<MatchDetailPage />} />
+        <Route path="/matches"                        element={<MatchesPage />} />
+        <Route path="/matches/:matchId"               element={<MatchDetailPage />} />
+        <Route path="/matches/:matchId/live"           element={<LiveScorePage />} />
+        <Route path="/tournaments"                    element={<TournamentsPage />} />
+        <Route path="/tournaments/:tournamentId"      element={<TournamentSettingsPage />} />
       </Route>
 
       {/* Catch-all */}

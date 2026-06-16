@@ -469,6 +469,25 @@ export default function MatchDetailPage() {
                 >
                   {startLoading ? <><span className="team-spinner" /> Starting…</> : '▶ Start Match'}
                 </button>
+                <button
+                  className="team-btn team-btn--outline"
+                  onClick={() => navigate(`/matches/${match.id}/live`)}
+                >
+                  🏏 Live Scoring Setup
+                </button>
+              </div>
+            )}
+
+            {match.status === 'live' && (
+              <div className="match-admin-bar">
+                <button
+                  id="live-score-btn"
+                  className="team-btn team-btn--primary"
+                  style={{ background: 'linear-gradient(135deg,#4ade80,#16a34a)' }}
+                  onClick={() => navigate(`/matches/${match.id}/live`)}
+                >
+                  ⚡ Open Live Scoring
+                </button>
               </div>
             )}
 
