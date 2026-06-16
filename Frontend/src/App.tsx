@@ -11,10 +11,12 @@ import { ProtectedRoute } from './components/common/ProtectedRoute'
 import { LoginPage }    from './pages/Login'
 import { SignupPage }   from './pages/Signup'
 import { DashboardPage } from './pages/Dashboard'
-import TeamsPage       from './pages/Teams/TeamsPage'
-import MyTeamsPage     from './pages/Teams/MyTeamsPage'
-import CreateTeamPage  from './pages/Teams/CreateTeamPage'
-import TeamDetailPage  from './pages/Teams/TeamDetailPage'
+import TeamsPage          from './pages/Teams/TeamsPage'
+import MyTeamsPage        from './pages/Teams/MyTeamsPage'
+import CreateTeamPage     from './pages/Teams/CreateTeamPage'
+import TeamDetailPage     from './pages/Teams/TeamDetailPage'
+import PlayersPage        from './pages/Players/PlayersPage'
+import PlayerDetailPage   from './pages/Players/PlayerDetailPage'
 import './App.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,11 +360,13 @@ function AppRoutes() {
 
       {/* Protected routes */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard"        element={<DashboardPage />} />
-        <Route path="/teams"             element={<TeamsPage />} />
-        <Route path="/teams/create"      element={<CreateTeamPage />} />
-        <Route path="/teams/:teamId"     element={<TeamDetailPage />} />
-        <Route path="/my-teams"          element={<MyTeamsPage />} />
+        <Route path="/dashboard"              element={<DashboardPage />} />
+        <Route path="/teams"                  element={<TeamsPage />} />
+        <Route path="/teams/create"           element={<CreateTeamPage />} />
+        <Route path="/teams/:teamId"          element={<TeamDetailPage />} />
+        <Route path="/my-teams"               element={<MyTeamsPage />} />
+        <Route path="/teams/:teamId/players"  element={<PlayersPage />} />
+        <Route path="/players/:playerId"      element={<PlayerDetailPage />} />
       </Route>
 
       {/* Catch-all */}
