@@ -38,9 +38,12 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   const navLinks = [
-    { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { to: '/teams',     label: 'Teams',     icon: '🏆' },
-    { to: '/my-teams',  label: 'My Teams',  icon: '👥' },
+    { to: '/dashboard',   label: 'Dashboard',   icon: '📊' },
+    { to: '/teams',       label: 'Teams',       icon: '🏆' },
+    { to: '/my-teams',    label: 'My Teams',    icon: '👥' },
+    { to: '/matches',     label: 'Matches',     icon: '🏏' },
+    { to: '/leaderboard', label: 'Leaderboard', icon: '🥇' },
+    { to: '/tournaments', label: 'Tournaments', icon: '🎯' },
   ]
 
   return (
