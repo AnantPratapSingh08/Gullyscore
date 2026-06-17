@@ -121,6 +121,11 @@ export interface Match {
   innings1?: Innings
   innings2?: Innings
 
+  // ── Tournament linkage ────────────────────────────────────────────────────
+
+  /** Tournament this match belongs to (empty string if standalone) */
+  tournamentId: string
+
   // ── Metadata ─────────────────────────────────────────────────────────────
 
   createdAt: Timestamp | null

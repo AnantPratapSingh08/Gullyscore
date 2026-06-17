@@ -24,6 +24,7 @@ import TournamentSettingsPage  from './pages/Tournament/TournamentSettingsPage'
 import LiveScorePage           from './pages/LiveScore/LiveScorePage'
 import LeaderboardPage         from './pages/Leaderboard/LeaderboardPage'
 import ProfilePage             from './pages/Profile/ProfilePage'
+import TournamentDetailPage    from './pages/Tournament/TournamentDetailPage'
 import './App.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -378,8 +379,9 @@ function AppRoutes() {
         <Route path="/matches/:matchId"               element={<MatchDetailPage />} />
         <Route path="/matches/:matchId/live"           element={<LiveScorePage />} />
         <Route path="/leaderboard"                    element={<LeaderboardPage />} />
-        <Route path="/tournaments"                    element={<TournamentsPage />} />
-        <Route path="/tournaments/:tournamentId"      element={<TournamentSettingsPage />} />
+        <Route path="/tournaments"                          element={<TournamentsPage />} />
+        <Route path="/tournaments/:tournamentId"            element={<TournamentDetailPage />} />
+        <Route path="/tournaments/:tournamentId/settings"   element={<TournamentSettingsPage />} />
         <Route path="/profile"                        element={<ProfilePage />} />
         {/* Alias routes — required by spec */}
         <Route path="/players"                        element={<Navigate to="/teams" replace />} />

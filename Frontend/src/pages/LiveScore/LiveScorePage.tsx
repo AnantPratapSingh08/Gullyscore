@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { subscribeToMatch, startMatch } from '../../services/matchService'
 import { getPlayersByTeam } from '../../services/playerService'
 import {
-  initLiveGame, recordBall, subscribeToLiveState, recomputeAndSaveLiveState,
+  initLiveGame, recordBall, subscribeToLiveState, recomputeAndSaveLiveState, undoLastBall,
 } from '../../services/liveScoreService'
 import type { Match } from '../../types/match'
 import type { Player } from '../../types/player'
@@ -18,13 +18,16 @@ import '../../styles/liveScore.css'
 
 // ── Ball outcome display ───────────────────────────────────────────────────────
 const OUTCOMES: { outcome: BallOutcome; label: string; cls: string }[] = [
-  { outcome: 'dot', label: '●', cls: 'dot' },
-  { outcome: '1',   label: '1', cls: 'run' },
-  { outcome: '2',   label: '2', cls: 'run' },
-  { outcome: '3',   label: '3', cls: 'run' },
-  { outcome: '4',   label: '4', cls: 'four' },
-  { outcome: '6',   label: '6', cls: 'six' },
-  { outcome: 'W',   label: 'W', cls: 'wicket' },
+  { outcome: 'dot', label: '●',  cls: 'dot' },
+  { outcome: '1',   label: '1',  cls: 'run' },
+  { outcome: '2',   label: '2',  cls: 'run' },
+  { outcome: '3',   label: '3',  cls: 'run' },
+  { outcome: '4',   label: '4',  cls: 'four' },
+  { outcome: '5',   label: '5',  cls: 'run' },
+  { outcome: '6',   label: '6',  cls: 'six' },
+  { outcome: 'W',   label: 'W',  cls: 'wicket' },
+  { outcome: 'ro',  label: 'RO', cls: 'wicket' },
+  { outcome: 'rh',  label: 'RH', cls: 'extra' },
   { outcome: 'wd',  label: 'Wd', cls: 'extra' },
   { outcome: 'nb',  label: 'Nb', cls: 'extra' },
   { outcome: 'lb',  label: 'Lb', cls: 'extra' },
@@ -35,9 +38,8 @@ function ballCls(o: BallOutcome): string {
   if (o === 'dot') return 'dot'
   if (o === '4') return 'four'
   if (o === '6') return 'six'
-  if (o === 'W') return 'wicket'
-  if (o === 'wd') return 'wide'
-  if (o === 'nb') return 'noball'
+  if (o === 'W' || o === 'ro') return 'wicket'
+  if (o === 'wd' || o === 'nb' || o === 'lb' || o === 'b' || o === 'rh') return 'wide'
   return 'run'
 }
 
@@ -104,30 +106,49 @@ interface ScoringPadProps {
   match: Match
   players1: Player[]
   players2: Player[]
-  onBall: (outcome: BallOutcome, extra?: string, wicketDesc?: string, newBowler?: Player) => Promise<void>
+  onBall: (outcome: BallOutcome, extra?: string, wicketDesc?: string, newBowler?: Player, newBatter?: Player) => Promise<void>
 }
 
 function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPadProps) {
   const [selected,    setSelected]    = useState<BallOutcome | null>(null)
   const [wicketDesc,  setWicketDesc]  = useState('')
   const [newBowlerId, setNewBowlerId] = useState('')
+  const [newBatterId, setNewBatterId] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const ci  = liveState.currentInnings
-  const inn = ci === 0 ? liveState.innings1 : liveState.innings2
+  const ci       = liveState.currentInnings
+  const inn      = ci === 0 ? liveState.innings1 : liveState.innings2
+  const batters  = ci === 0 ? players1 : players2
+  const bowlers  = ci === 0 ? players2 : players1
 
   const isNewOver = inn ? inn.legalBalls % 6 === 0 && inn.legalBalls > 0 : false
-  const bowlers   = ci === 0 ? players2 : players1
+
+  // Players already out (can't bat again)
+  const outIds = new Set((inn?.batters ?? []).filter(b => b.isOut).map(b => b.playerId))
+  // Available new batters: not already at crease and not out
+  const availableBatters = batters.filter(
+    p => p.id !== liveState.strikerId &&
+         p.id !== liveState.nonStrikerId &&
+         !outIds.has(p.id)
+  )
 
   async function handleRecord() {
     if (!selected) return
     setSaving(true)
     try {
-      const nb = bowlers.find(p => p.id === newBowlerId)
-      await onBall(selected, undefined, selected === 'W' ? wicketDesc : undefined, isNewOver ? nb : undefined)
+      const nb      = bowlers.find(p => p.id === newBowlerId)
+      const batter  = batters.find(p => p.id === newBatterId)
+      await onBall(
+        selected,
+        undefined,
+        selected === 'W' ? wicketDesc : undefined,
+        isNewOver ? nb : undefined,
+        selected === 'W' ? batter : undefined,
+      )
       setSelected(null)
       setWicketDesc('')
       setNewBowlerId('')
+      setNewBatterId('')
     } finally { setSaving(false) }
   }
 
@@ -177,7 +198,7 @@ function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPad
         ))}
       </div>
 
-      {/* Wicket details */}
+      {/* Wicket details + new batter */}
       {selected === 'W' && (
         <div className="live-wicket-panel">
           <div className="live-wicket-title">🔴 Wicket Details</div>
@@ -186,13 +207,26 @@ function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPad
             <input id="wkt-desc" type="text" className="team-form-input" value={wicketDesc}
               onChange={e => setWicketDesc(e.target.value)} placeholder="c Sharma b Kumar" maxLength={80} />
           </div>
+          <div className="team-form-field" style={{ marginTop: 10 }}>
+            <label className="team-form-label" htmlFor="new-batter">New Batter (incoming)</label>
+            <select id="new-batter" className="team-form-input" value={newBatterId} onChange={e => setNewBatterId(e.target.value)}>
+              <option value="">— Select new batter —</option>
+              {availableBatters.map(p => (
+                <option key={p.id} value={p.id}>{p.name} #{p.jerseyNumber}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
       <button
         className="live-record-btn"
         onClick={handleRecord}
-        disabled={!selected || saving || (selected === 'W' && !wicketDesc) || (isNewOver && !newBowlerId)}
+        disabled={
+          !selected || saving ||
+          (selected === 'W' && (!wicketDesc || !newBatterId)) ||
+          (isNewOver && !newBowlerId)
+        }
       >
         {saving ? <><span className="team-spinner" /> Recording…</> : `Record ${selected ? OUTCOMES.find(o => o.outcome === selected)?.label ?? '' : '—'}`}
       </button>
@@ -263,6 +297,18 @@ function Scoreboard({ liveState, match }: { liveState: LiveGameState; match: Mat
               <span className="live-rate-label">CRR</span>
               <span className="live-rate-value">{inn.currentRunRate}</span>
             </div>
+            {inn.partnership && inn.partnership.runs > 0 && (
+              <div className="live-rate-item">
+                <span className="live-rate-label">Partnership</span>
+                <span className="live-rate-value">{inn.partnership.runs} ({inn.partnership.balls})</span>
+              </div>
+            )}
+            {!inn.target && inn.projectedScore > 0 && (
+              <div className="live-rate-item">
+                <span className="live-rate-label">Projected</span>
+                <span className="live-rate-value" style={{ color: '#a78bfa' }}>{inn.projectedScore}</span>
+              </div>
+            )}
             {inn.target && (
               <>
                 <div className="live-rate-item">
@@ -454,15 +500,25 @@ export default function LiveScorePage() {
     } catch { showToast('Failed to start.', 'error') }
   }, [match, showToast])
 
-  const handleBall = useCallback(async (outcome: BallOutcome, _extra?: string, wicketDesc?: string, newBowler?: Player) => {
+  const handleBall = useCallback(async (
+    outcome: BallOutcome,
+    _extra?: string,
+    wicketDesc?: string,
+    newBowler?: Player,
+    newBatter?: Player,
+  ) => {
     if (!match || !liveState) return
     const ci  = liveState.currentInnings
     const inn = ci === 0 ? liveState.innings1 : liveState.innings2
     if (!inn) return
 
-    const legalBalls  = inn.legalBalls
-    const overNumber  = Math.floor(legalBalls / 6)
-    const ballInOver  = legalBalls % 6
+    const legalBalls = inn.legalBalls
+    const overNumber = Math.floor(legalBalls / 6)
+    const ballInOver = legalBalls % 6
+
+    // After a wicket the NEW batter becomes the striker for this delivery record
+    const effectiveStrikerId   = outcome === 'W' && newBatter ? newBatter.id   : liveState.strikerId
+    const effectiveStrikerName = outcome === 'W' && newBatter ? newBatter.name : liveState.strikerName
 
     try {
       await recordBall({
@@ -471,15 +527,15 @@ export default function LiveScorePage() {
         overNumber,
         ballInOver,
         outcome,
-        strikerId:      liveState.strikerId,
-        strikerName:    liveState.strikerName,
+        strikerId:      effectiveStrikerId,
+        strikerName:    effectiveStrikerName,
         nonStrikerId:   liveState.nonStrikerId,
         nonStrikerName: liveState.nonStrikerName,
         bowlerId:       newBowler?.id   ?? liveState.bowlerId,
         bowlerName:     newBowler?.name ?? liveState.bowlerName,
         wicket: outcome === 'W' && wicketDesc ? {
           dismissalType: 'caught',
-          batsmanId:     liveState.strikerId,
+          batsmanId:     liveState.strikerId,   // who got out
           batsmanName:   liveState.strikerName,
           bowlerId:      liveState.bowlerId,
           bowlerName:    liveState.bowlerName,
@@ -491,7 +547,26 @@ export default function LiveScorePage() {
         match.team1Id, match.team1Name,
         match.team2Id, match.team2Name,
       )
-    } catch { showToast('Failed to record ball.', 'error') }
+    } catch (err) {
+      console.error('[handleBall] error:', err)
+      showToast('Failed to record ball.', 'error')
+    }
+  }, [match, liveState, showToast])
+
+  const handleUndo = useCallback(async () => {
+    if (!match || !liveState) return
+    try {
+      await undoLastBall(match.id, liveState.currentInnings)
+      await recomputeAndSaveLiveState(
+        match.id, match.totalOvers,
+        match.team1Id, match.team1Name,
+        match.team2Id, match.team2Name,
+      )
+      showToast('Last ball undone.', 'info')
+    } catch (err) {
+      console.error('[handleUndo] error:', err)
+      showToast('Failed to undo.', 'error')
+    }
   }, [match, liveState, showToast])
 
   if (loading) {
@@ -564,13 +639,23 @@ export default function LiveScorePage() {
               </div>
               <div className="live-layout-aside">
                 {isOwner && !gameEnded && match.status === 'live' && (
-                  <ScoringPad
-                    liveState={liveState}
-                    match={match}
-                    players1={players1}
-                    players2={players2}
-                    onBall={handleBall}
-                  />
+                  <>
+                    <ScoringPad
+                      liveState={liveState}
+                      match={match}
+                      players1={players1}
+                      players2={players2}
+                      onBall={handleBall}
+                    />
+                    <button
+                      id="undo-ball-btn"
+                      className="live-record-btn"
+                      style={{ marginTop: 8, background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}
+                      onClick={handleUndo}
+                    >
+                      ↩ Undo Last Ball
+                    </button>
+                  </>
                 )}
                 {!isOwner && (
                   <div className="live-spectator-note">

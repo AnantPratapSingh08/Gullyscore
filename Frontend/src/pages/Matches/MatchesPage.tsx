@@ -102,7 +102,7 @@ export default function MatchesPage() {
   async function handleCreate(data: MatchFormData) {
     if (!user) { showToast('Please log in.', 'error'); return }
     try {
-      const id = await createMatch({ ...data, createdBy: user.uid })
+      const id = await createMatch({ ...data, tournamentId: '', createdBy: user.uid })
       showToast('Match created! 🏏', 'success')
       setShowAdd(false)
       setTimeout(() => navigate(`/matches/${id}`), 600)

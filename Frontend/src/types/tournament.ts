@@ -1,76 +1,81 @@
 // src/types/tournament.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Type definitions for the Tournament Admin module.
+// Tournament types — with private code-based access control system.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Timestamp } from 'firebase/firestore'
 
-// ── Status ────────────────────────────────────────────────────────────────────
-
 export type TournamentStatus =
-  | 'draft'       // Created, not yet published
-  | 'registration'// Open for team/player registration
-  | 'active'      // Matches being played
-  | 'completed'   // All matches done, winner declared
+  | 'draft'
+  | 'registration'
+  | 'active'
+  | 'completed'
   | 'cancelled'
 
 export type TournamentFormat =
-  | 'League'          // Round-robin
-  | 'Knockout'        // Single-elimination
-  | 'Double Knockout' // Double-elimination
+  | 'League'
+  | 'Knockout'
+  | 'Double Knockout'
   | 'League + Knockout'
   | 'Custom'
+
+// ── Points table entry ────────────────────────────────────────────────────────
+
+export interface PointsTableEntry {
+  teamId:   string
+  teamName: string
+  teamLogo: string
+  played:   number
+  won:      number
+  lost:     number
+  tied:     number
+  nrr:      number   // Net Run Rate
+  points:   number
+}
+
+// ── Tournament Awards ─────────────────────────────────────────────────────────
+
+export interface TournamentAwards {
+  orangeCap?:       { playerId: string; playerName: string; runs: number }
+  purpleCap?:       { playerId: string; playerName: string; wickets: number }
+  bestFielder?:     { playerId: string; playerName: string; dismissals: number }
+  playerOfTournament?: { playerId: string; playerName: string }
+  bestEconomy?:     { playerId: string; playerName: string; economy: number }
+  highestStrikeRate?: { playerId: string; playerName: string; strikeRate: number }
+}
 
 // ── Core entity ───────────────────────────────────────────────────────────────
 
 export interface Tournament {
-  /** Firestore document ID */
-  id: string
-
-  /** Tournament name */
-  name: string
-
-  /** Short description */
+  id:          string
+  name:        string
   description: string
+  format:      TournamentFormat
+  venue:       string
+  startDate:   string
+  endDate:     string
+  maxTeams:    number
+  status:      TournamentStatus
 
-  /** Tournament format */
-  format: TournamentFormat
+  /** 6-character uppercase code for private access — e.g. "ABC123" */
+  tournamentCode: string
 
-  /** Venue / location */
-  venue: string
-
-  /** Start date (ISO string) */
-  startDate: string
-
-  /** End date (ISO string) */
-  endDate: string
-
-  /** Maximum number of teams allowed */
-  maxTeams: number
-
-  /** Current status */
-  status: TournamentStatus
-
-  /** UID of the tournament admin (the creator) */
-  adminId: string
-
-  /** Display name of admin */
+  /** UID of the tournament owner/admin */
+  adminId:   string
   adminName: string
 
-  /** IDs of teams participating in this tournament */
-  teamIds: string[]
-
-  /** IDs of matches in this tournament */
+  teamIds:  string[]
   matchIds: string[]
 
-  /** Prize / description of prize pool */
   prizePool: string
+  logo:      string
+  winnerId:  string
 
-  /** Logo / banner emoji */
-  logo: string
+  /** Points table (updated after each match) */
+  pointsTable: PointsTableEntry[]
 
-  /** Winner team ID (set when completed) */
-  winnerId: string
+  /** Tournament awards */
+  awards: TournamentAwards
 
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
@@ -79,13 +84,9 @@ export interface Tournament {
 // ── Write payloads ────────────────────────────────────────────────────────────
 
 export type TournamentCreatePayload = Omit<Tournament,
-  | 'id'
-  | 'createdAt'
-  | 'updatedAt'
-  | 'status'
-  | 'teamIds'
-  | 'matchIds'
-  | 'winnerId'
+  | 'id' | 'createdAt' | 'updatedAt'
+  | 'status' | 'teamIds' | 'matchIds' | 'winnerId'
+  | 'pointsTable' | 'awards'
 > & {
   createdAt: unknown
   updatedAt: unknown
@@ -97,13 +98,11 @@ export type TournamentUpdatePayload = Partial<
     | 'startDate' | 'endDate' | 'maxTeams'
     | 'status' | 'prizePool' | 'logo'
     | 'teamIds' | 'matchIds' | 'winnerId'
+    | 'pointsTable' | 'awards'
   >
 >
 
-// ── Role ──────────────────────────────────────────────────────────────────────
-
-/** Result of a role check — returned by the guard helpers */
 export interface TournamentRoleCheck {
   isAdmin:  boolean
-  isMember: boolean // member = team in tournament, player read-only
+  isMember: boolean
 }

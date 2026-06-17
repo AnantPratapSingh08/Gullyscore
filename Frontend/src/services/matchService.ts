@@ -41,32 +41,25 @@ function docToMatch(id: string, data: Record<string, unknown>): Match {
     venue:         (data.venue         as string) ?? '',
     scheduledAt:   (data.scheduledAt   as string) ?? '',
     status:        (data.status        as Match['status']) ?? 'upcoming',
-
+    tournamentId:  (data.tournamentId  as string) ?? '',
     team1Id:       (data.team1Id       as string) ?? '',
     team1Name:     (data.team1Name     as string) ?? '',
     team1Logo:     (data.team1Logo     as string) ?? '🏏',
-
     team2Id:       (data.team2Id       as string) ?? '',
     team2Name:     (data.team2Name     as string) ?? '',
     team2Logo:     (data.team2Logo     as string) ?? '🏏',
-
     tossWinnerId:  (data.tossWinnerId  as string) ?? '',
     tossDecision:  (data.tossDecision  as Match['tossDecision']) ?? '',
-
     team1Score:    (data.team1Score    as number) ?? 0,
     team1Wickets:  (data.team1Wickets  as number) ?? 0,
     team1Overs:    (data.team1Overs    as number) ?? 0,
-
     team2Score:    (data.team2Score    as number) ?? 0,
     team2Wickets:  (data.team2Wickets  as number) ?? 0,
     team2Overs:    (data.team2Overs    as number) ?? 0,
-
     result:        (data.result        as Match['result']) ?? '',
     resultSummary: (data.resultSummary as string) ?? '',
-
     innings1:      (data.innings1      as Match['innings1']) ?? undefined,
     innings2:      (data.innings2      as Match['innings2']) ?? undefined,
-
     createdAt:     (data.createdAt     as Match['createdAt']) ?? null,
     createdBy:     (data.createdBy     as string) ?? '',
   }
@@ -83,6 +76,7 @@ export async function createMatch(
 ): Promise<string> {
   const ref = await addDoc(collection(db, MATCHES), {
     ...payload,
+    tournamentId:  payload.tournamentId ?? '',
     status:        'upcoming',
     tossWinnerId:  '',
     tossDecision:  '',

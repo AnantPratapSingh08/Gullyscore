@@ -13,8 +13,11 @@ export type BallOutcome =
   | '2'         // 2 runs
   | '3'         // 3 runs
   | '4'         // boundary 4
+  | '5'         // 5 runs (rare, overthrows)
   | '6'         // boundary 6
   | 'W'         // wicket
+  | 'ro'        // run out
+  | 'rh'        // retired hurt
   | 'wd'        // wide (+1, ball not counted)
   | 'nb'        // no-ball (+1, ball not counted)
   | 'lb'        // leg bye (runs + ball counted)
@@ -154,6 +157,12 @@ export interface LiveInningsState {
 
   /** Current Run Rate */
   currentRunRate:   number
+
+  /** Current partnership runs and balls */
+  partnership: { runs: number; balls: number }
+
+  /** Projected final score based on current CRR */
+  projectedScore: number
 
   batters:  LiveBatterEntry[]
   bowlers:  LiveBowlerEntry[]

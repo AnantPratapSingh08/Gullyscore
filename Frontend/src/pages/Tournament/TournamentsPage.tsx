@@ -284,12 +284,12 @@ export default function TournamentsPage() {
   async function handleCreate(data: Parameters<CreateFormProps['onSubmit']>[0]) {
     if (!user) { showToast('Please log in.', 'error'); return }
     try {
-      const id = await createTournament({
+      const { id, code } = await createTournament({
         ...data,
         adminId:   user.uid,
         adminName: userProfile?.name || user.displayName || user.email || 'Admin',
       })
-      showToast('Tournament created! 🏆', 'success')
+      showToast(`Tournament created! 🏆 Code: ${code}`, 'success')
       setShowCreate(false)
       setTimeout(() => navigate(`/tournaments/${id}`), 600)
     } catch {

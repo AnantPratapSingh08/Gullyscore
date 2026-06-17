@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Player, PlayerCreatePayload, PlayerUpdatePayload, PlayerStatsPayload } from '../types/player'
+import { emptyBattingStats, emptyBowlingStats, emptyFieldingStats } from '../types/player'
 
 // ── Collection reference ──────────────────────────────────────────────────────
 
@@ -29,22 +30,34 @@ const PLAYERS = 'players'
 function docToPlayer(id: string, data: Record<string, unknown>): Player {
   return {
     id,
-    name:         (data.name         as string)          ?? '',
-    email:        (data.email        as string)          ?? '',
-    phone:        (data.phone        as string)          ?? '',
-    teamId:       (data.teamId       as string)          ?? '',
-    jerseyNumber: (data.jerseyNumber as number)          ?? 0,
-    role:         (data.role         as Player['role'])  ?? 'Batsman',
+    userId:       (data.userId       as string) ?? '',
+    name:         (data.name         as string) ?? '',
+    email:        (data.email        as string) ?? '',
+    phone:        (data.phone        as string) ?? '',
+    bio:          (data.bio          as string) ?? '',
+    avatarUrl:    (data.avatarUrl    as string) ?? '',
+    teamId:       (data.teamId       as string) ?? '',
+    jerseyNumber: (data.jerseyNumber as number) ?? 0,
+    role:         (data.role         as Player['role'])          ?? 'Batsman',
     battingStyle: (data.battingStyle as Player['battingStyle']) ?? 'Right-Handed',
     bowlingStyle: (data.bowlingStyle as Player['bowlingStyle']) ?? 'N/A',
-    matches:      (data.matches      as number)          ?? 0,
-    runs:         (data.runs         as number)          ?? 0,
-    wickets:      (data.wickets      as number)          ?? 0,
-    average:      (data.average      as number)          ?? 0,
-    strikeRate:   (data.strikeRate   as number)          ?? 0,
-    economy:      (data.economy      as number)          ?? 0,
-    createdAt:    (data.createdAt    as Player['createdAt']) ?? null,
-    createdBy:    (data.createdBy    as string)          ?? '',
+    matches:      (data.matches      as number) ?? 0,
+    runs:         (data.runs         as number) ?? 0,
+    wickets:      (data.wickets      as number) ?? 0,
+    average:      (data.average      as number) ?? 0,
+    strikeRate:   (data.strikeRate   as number) ?? 0,
+    economy:      (data.economy      as number) ?? 0,
+    batting:      (data.batting      as Player['batting'])      ?? emptyBattingStats(),
+    bowling:      (data.bowling      as Player['bowling'])      ?? emptyBowlingStats(),
+    fielding:     (data.fielding     as Player['fielding'])     ?? emptyFieldingStats(),
+    battingT20:   (data.battingT20   as Player['battingT20'])   ?? emptyBattingStats(),
+    bowlingT20:   (data.bowlingT20   as Player['bowlingT20'])   ?? emptyBowlingStats(),
+    battingODI:   (data.battingODI   as Player['battingODI'])   ?? emptyBattingStats(),
+    bowlingODI:   (data.bowlingODI   as Player['bowlingODI'])   ?? emptyBowlingStats(),
+    battingTest:  (data.battingTest  as Player['battingTest'])  ?? emptyBattingStats(),
+    bowlingTest:  (data.bowlingTest  as Player['bowlingTest'])  ?? emptyBowlingStats(),
+    createdAt:    (data.createdAt    as Player['createdAt'])    ?? null,
+    createdBy:    (data.createdBy    as string) ?? '',
   }
 }
 

@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Player } from '../types/player'
+import { emptyBattingStats, emptyBowlingStats, emptyFieldingStats } from '../types/player'
 import type { Team } from '../types/team'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -17,9 +18,9 @@ export interface PlayerRankEntry {
   playerName: string
   teamId:     string
   teamName:   string
-  value:      number      // the primary metric (runs, wickets, SR, etc.)
-  secondary?: number      // e.g. matches played for context
-  badge?:     string      // emoji badge for top 3
+  value:      number
+  secondary?: number
+  badge?:     string
 }
 
 export interface TeamRankEntry {
@@ -38,8 +39,10 @@ export interface LeaderboardData {
   topWicketTakers: PlayerRankEntry[]
   mostSixes:       PlayerRankEntry[]
   mostFours:       PlayerRankEntry[]
-  bestStrikeRate:  PlayerRankEntry[]   // min 30 balls
-  bestEconomy:     PlayerRankEntry[]   // min 2 overs (12 balls)
+  mostCatches:     PlayerRankEntry[]
+  mostRunOuts:     PlayerRankEntry[]
+  bestStrikeRate:  PlayerRankEntry[]
+  bestEconomy:     PlayerRankEntry[]
   teamRankings:    TeamRankEntry[]
   lastUpdated:     Date
 }
@@ -56,32 +59,47 @@ function addTeamBadges(entries: TeamRankEntry[]): TeamRankEntry[] {
   return entries.map((e, i) => ({ ...e, rank: i + 1 }))
 }
 
+// ── Player hydration ──────────────────────────────────────────────────────────
+
+function hydratePlayer(id: string, data: Record<string, unknown>): Player {
+  return {
+    id,
+    userId:       (data.userId       as string) ?? '',
+    name:         (data.name         as string) ?? '',
+    email:        (data.email        as string) ?? '',
+    phone:        (data.phone        as string) ?? '',
+    bio:          (data.bio          as string) ?? '',
+    avatarUrl:    (data.avatarUrl    as string) ?? '',
+    teamId:       (data.teamId       as string) ?? '',
+    jerseyNumber: (data.jerseyNumber as number) ?? 0,
+    role:         (data.role         as Player['role'])          ?? 'Batsman',
+    battingStyle: (data.battingStyle as Player['battingStyle']) ?? 'Right-Handed',
+    bowlingStyle: (data.bowlingStyle as Player['bowlingStyle']) ?? 'N/A',
+    matches:      (data.matches      as number) ?? 0,
+    runs:         (data.runs         as number) ?? 0,
+    wickets:      (data.wickets      as number) ?? 0,
+    average:      (data.average      as number) ?? 0,
+    strikeRate:   (data.strikeRate   as number) ?? 0,
+    economy:      (data.economy      as number) ?? 0,
+    batting:      (data.batting      as Player['batting'])      ?? emptyBattingStats(),
+    bowling:      (data.bowling      as Player['bowling'])      ?? emptyBowlingStats(),
+    fielding:     (data.fielding     as Player['fielding'])     ?? emptyFieldingStats(),
+    battingT20:   (data.battingT20   as Player['battingT20'])   ?? emptyBattingStats(),
+    bowlingT20:   (data.bowlingT20   as Player['bowlingT20'])   ?? emptyBowlingStats(),
+    battingODI:   (data.battingODI   as Player['battingODI'])   ?? emptyBattingStats(),
+    bowlingODI:   (data.bowlingODI   as Player['bowlingODI'])   ?? emptyBowlingStats(),
+    battingTest:  (data.battingTest  as Player['battingTest'])  ?? emptyBattingStats(),
+    bowlingTest:  (data.bowlingTest  as Player['bowlingTest'])  ?? emptyBowlingStats(),
+    createdAt:    (data.createdAt    as Player['createdAt'])    ?? null,
+    createdBy:    (data.createdBy    as string) ?? '',
+  }
+}
+
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
 
 async function fetchAllPlayers(): Promise<Player[]> {
   const snap = await getDocs(collection(db, 'players'))
-  return snap.docs.map(d => {
-    const data = d.data() as Record<string, unknown>
-    return {
-      id:           d.id,
-      name:         (data.name         as string)          ?? '',
-      email:        (data.email        as string)          ?? '',
-      phone:        (data.phone        as string)          ?? '',
-      teamId:       (data.teamId       as string)          ?? '',
-      jerseyNumber: (data.jerseyNumber as number)          ?? 0,
-      role:         (data.role         as Player['role'])  ?? 'Batsman',
-      battingStyle: (data.battingStyle as Player['battingStyle']) ?? 'Right-Handed',
-      bowlingStyle: (data.bowlingStyle as Player['bowlingStyle']) ?? 'N/A',
-      matches:      (data.matches      as number)          ?? 0,
-      runs:         (data.runs         as number)          ?? 0,
-      wickets:      (data.wickets      as number)          ?? 0,
-      average:      (data.average      as number)          ?? 0,
-      strikeRate:   (data.strikeRate   as number)          ?? 0,
-      economy:      (data.economy      as number)          ?? 0,
-      createdAt:    (data.createdAt    as Player['createdAt']) ?? null,
-      createdBy:    (data.createdBy    as string)          ?? '',
-    }
-  })
+  return snap.docs.map(d => hydratePlayer(d.id, d.data() as Record<string, unknown>))
 }
 
 async function fetchAllTeams(): Promise<Team[]> {
@@ -104,25 +122,15 @@ async function fetchAllTeams(): Promise<Team[]> {
 // ── Compute leaderboards ──────────────────────────────────────────────────────
 
 function computeLeaderboards(players: Player[], teams: Team[]): LeaderboardData {
-  // Build teamId → teamName map
   const teamMap = new Map<string, string>()
   teams.forEach(t => teamMap.set(t.id, t.teamName))
 
-  const toEntry = (
-    p: Player,
-    value: number,
-    secondary?: number,
-  ): PlayerRankEntry => ({
-    rank:       0,
-    playerId:   p.id,
-    playerName: p.name,
-    teamId:     p.teamId,
-    teamName:   teamMap.get(p.teamId) ?? '—',
-    value,
-    secondary,
+  const toEntry = (p: Player, value: number, secondary?: number): PlayerRankEntry => ({
+    rank: 0, playerId: p.id, playerName: p.name,
+    teamId: p.teamId, teamName: teamMap.get(p.teamId) ?? '—',
+    value, secondary,
   })
 
-  // ── Top Run Scorers ──────────────────────────────────────────────────────────
   const topRunScorers = addBadges(
     [...players]
       .filter(p => p.runs > 0)
@@ -131,7 +139,6 @@ function computeLeaderboards(players: Player[], teams: Team[]): LeaderboardData 
       .map(p => toEntry(p, p.runs, p.matches)),
   )
 
-  // ── Top Wicket Takers ────────────────────────────────────────────────────────
   const topWicketTakers = addBadges(
     [...players]
       .filter(p => p.wickets > 0)
@@ -140,43 +147,47 @@ function computeLeaderboards(players: Player[], teams: Team[]): LeaderboardData 
       .map(p => toEntry(p, p.wickets, p.matches)),
   )
 
-  // ── Most Sixes ───────────────────────────────────────────────────────────────
-  // sixes not stored directly on Player — derive from strikeRate/runs heuristic?
-  // Since Player type has no "sixes" field, we use runs as proxy and note this.
-  // We'll show players sorted by (runs × strikeRate) as a power-hitter index.
-  // Actually let's just filter players who have runs > 0 and rank by strike rate
-  // for this category, labelled as "Power Hitters" until sixes data available.
-  // We keep it separate below using strikeRate × runs product as the sixes proxy.
+  // Use batting.sixes for most sixes (falls back to 0 if not set yet)
   const mostSixes = addBadges(
     [...players]
-      .filter(p => p.runs >= 20 && p.strikeRate > 0)
-      .sort((a, b) => (b.strikeRate * b.runs) - (a.strikeRate * a.runs))
+      .filter(p => p.batting.sixes > 0)
+      .sort((a, b) => b.batting.sixes - a.batting.sixes)
       .slice(0, 20)
-      .map(p => toEntry(p, Math.round((p.strikeRate * p.runs) / 100), p.runs)),
+      .map(p => toEntry(p, p.batting.sixes, p.runs)),
   )
 
-  // ── Most Fours ───────────────────────────────────────────────────────────────
-  // Similarly, fours not stored; use runs × (1 - strikeRate/200) proxy for
-  // ground-stroke hitters (high runs, moderate SR → boundary-dependent).
   const mostFours = addBadges(
     [...players]
-      .filter(p => p.runs >= 20)
-      .sort((a, b) => b.runs - a.runs)
+      .filter(p => p.batting.fours > 0)
+      .sort((a, b) => b.batting.fours - a.batting.fours)
       .slice(0, 20)
-      .map(p => toEntry(p, p.runs, p.matches)),
+      .map(p => toEntry(p, p.batting.fours, p.runs)),
   )
 
-  // ── Best Strike Rate (min 30 balls implied: strikeRate field, matches ≥ 1) ──
-  const MIN_SR_MATCHES = 1
+  const mostCatches = addBadges(
+    [...players]
+      .filter(p => p.fielding.catches > 0)
+      .sort((a, b) => b.fielding.catches - a.fielding.catches)
+      .slice(0, 20)
+      .map(p => toEntry(p, p.fielding.catches, p.matches)),
+  )
+
+  const mostRunOuts = addBadges(
+    [...players]
+      .filter(p => p.fielding.runOuts > 0)
+      .sort((a, b) => b.fielding.runOuts - a.fielding.runOuts)
+      .slice(0, 20)
+      .map(p => toEntry(p, p.fielding.runOuts, p.matches)),
+  )
+
   const bestStrikeRate = addBadges(
     [...players]
-      .filter(p => p.matches >= MIN_SR_MATCHES && p.strikeRate > 0)
+      .filter(p => p.matches >= 1 && p.strikeRate > 0)
       .sort((a, b) => b.strikeRate - a.strikeRate)
       .slice(0, 20)
       .map(p => toEntry(p, parseFloat(p.strikeRate.toFixed(2)), p.matches)),
   )
 
-  // ── Best Economy (min 2 overs: economy field, wickets ≥ 1 or matches ≥ 1) ──
   const bestEconomy = addBadges(
     [...players]
       .filter(p => p.economy > 0 && p.matches >= 1)
@@ -185,7 +196,6 @@ function computeLeaderboards(players: Player[], teams: Team[]): LeaderboardData 
       .map(p => toEntry(p, parseFloat(p.economy.toFixed(2)), p.wickets)),
   )
 
-  // ── Team Rankings (by playerCount as proxy for activity) ─────────────────────
   const teamRankings = addTeamBadges(
     [...teams]
       .sort((a, b) => b.playerCount - a.playerCount || a.teamName.localeCompare(b.teamName))
@@ -203,14 +213,9 @@ function computeLeaderboards(players: Player[], teams: Team[]): LeaderboardData 
   )
 
   return {
-    topRunScorers,
-    topWicketTakers,
-    mostSixes,
-    mostFours,
-    bestStrikeRate,
-    bestEconomy,
-    teamRankings,
-    lastUpdated: new Date(),
+    topRunScorers, topWicketTakers, mostSixes, mostFours,
+    mostCatches, mostRunOuts, bestStrikeRate, bestEconomy,
+    teamRankings, lastUpdated: new Date(),
   }
 }
 
@@ -223,42 +228,17 @@ export async function getLeaderboardData(): Promise<LeaderboardData> {
 
 // ── Real-time subscription ────────────────────────────────────────────────────
 
-export function subscribeToLeaderboard(
-  callback: (data: LeaderboardData) => void,
-): Unsubscribe {
+export function subscribeToLeaderboard(callback: (data: LeaderboardData) => void): Unsubscribe {
   let players: Player[] = []
   let teams:   Team[]   = []
   let initialised = false
 
-  const recompute = () => {
-    if (initialised) callback(computeLeaderboards(players, teams))
-  }
+  const recompute = () => { if (initialised) callback(computeLeaderboards(players, teams)) }
 
   const unsubPlayers = onSnapshot(
     query(collection(db, 'players'), orderBy('runs', 'desc')),
     snap => {
-      players = snap.docs.map(d => {
-        const data = d.data() as Record<string, unknown>
-        return {
-          id:           d.id,
-          name:         (data.name         as string)          ?? '',
-          email:        (data.email        as string)          ?? '',
-          phone:        (data.phone        as string)          ?? '',
-          teamId:       (data.teamId       as string)          ?? '',
-          jerseyNumber: (data.jerseyNumber as number)          ?? 0,
-          role:         (data.role         as Player['role'])  ?? 'Batsman',
-          battingStyle: (data.battingStyle as Player['battingStyle']) ?? 'Right-Handed',
-          bowlingStyle: (data.bowlingStyle as Player['bowlingStyle']) ?? 'N/A',
-          matches:      (data.matches      as number)          ?? 0,
-          runs:         (data.runs         as number)          ?? 0,
-          wickets:      (data.wickets      as number)          ?? 0,
-          average:      (data.average      as number)          ?? 0,
-          strikeRate:   (data.strikeRate   as number)          ?? 0,
-          economy:      (data.economy      as number)          ?? 0,
-          createdAt:    (data.createdAt    as Player['createdAt']) ?? null,
-          createdBy:    (data.createdBy    as string)          ?? '',
-        }
-      })
+      players = snap.docs.map(d => hydratePlayer(d.id, d.data() as Record<string, unknown>))
       initialised = true
       recompute()
     },

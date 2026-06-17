@@ -26,6 +26,7 @@ import {
   deletePlayer,
 } from '../../services/playerService'
 import type { Player, PlayerRole } from '../../types/player'
+import { emptyBattingStats, emptyBowlingStats, emptyFieldingStats } from '../../types/player'
 import '../../styles/teams.css'
 
 // ── Role filter options ───────────────────────────────────────────────────────
@@ -211,13 +212,25 @@ export default function PlayersPage() {
     try {
       await createPlayer({
         ...data,
-        teamId: teamId ?? '',
+        userId:     '',
+        bio:        '',
+        avatarUrl:  '',
+        teamId:     teamId ?? '',
         matches:    0,
         runs:       0,
         wickets:    0,
         average:    0,
         strikeRate: 0,
         economy:    0,
+        batting:    emptyBattingStats(),
+        bowling:    emptyBowlingStats(),
+        fielding:   emptyFieldingStats(),
+        battingT20:  emptyBattingStats(),
+        bowlingT20:  emptyBowlingStats(),
+        battingODI:  emptyBattingStats(),
+        bowlingODI:  emptyBowlingStats(),
+        battingTest: emptyBattingStats(),
+        bowlingTest: emptyBowlingStats(),
         createdBy:  user.uid,
       })
       showToast(`${data.name} added to the squad! 🎉`, 'success')
@@ -225,7 +238,7 @@ export default function PlayersPage() {
       await fetchPlayers()
     } catch {
       showToast('Failed to add player. Please try again.', 'error')
-      throw new Error('Add failed') // keeps PlayerForm in loading state briefly
+      throw new Error('Add failed')
     }
   }
 
