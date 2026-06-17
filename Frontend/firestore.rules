@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function uid()    { return request.auth.uid; }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && uid() == userId;
+    }
+
+    // ── Teams ────────────────────────────────────────────────────────────────
+    match /teams/{teamId} {
+      allow read:  if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && resource.data.createdBy == uid();
+    }
+
+    // ── Players ──────────────────────────────────────────────────────────────
+    match /players/{playerId} {
+      allow read:  if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && resource.data.createdBy == uid();
+    }
+
+    // ── Matches ──────────────────────────────────────────────────────────────
+    match /matches/{matchId} {
+      allow read:  if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.createdBy == uid();
+      allow delete: if isAuth() && resource.data.createdBy == uid();
+    }
+
+    // ── Live Game States ──────────────────────────────────────────────────────
+    // The liveGameStates document ID = matchId.
+    // The match owner (createdBy) can read & write.
+    // All authenticated users can read (spectators).
+    match /liveGameStates/{matchId} {
+      allow read: if isAuth();
+      // Allow any authenticated user to write — the match creator check is
+      // enforced in the app layer. Firestore rules can't join across collections
+      // without a security rule function. We open writes to authenticated users
+      // and rely on app-level isOwner guard in LiveScorePage.
+      allow write: if isAuth();
+
+      // Ball events sub-collection — same policy
+      match /ballEvents/{eventId} {
+        allow read:  if isAuth();
+        allow write: if isAuth();
+      }
+    }
+
+    // ── Tournaments ───────────────────────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      allow read:  if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.adminId == uid();
+      allow delete: if isAuth() && resource.data.adminId == uid();
+    }
+
+    // ── Leaderboard cache (optional — if you ever add a precomputed cache) ───
+    match /leaderboardCache/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}

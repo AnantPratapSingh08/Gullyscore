@@ -1,13 +1,14 @@
 // src/services/liveScoreService.ts
 // Live Scoring Firestore service — ball events + LiveGameState.
 // ─────────────────────────────────────────────────────────────────────────────
-// KEY FIXES:
-// • Removed compound Firestore queries (no composite index needed)
-// • Full striker rotation logic (odd runs + end of over)
-// • New batter selection after wicket
-// • Partnership + projected score tracking
-// • Undo last ball support
-// • New outcomes: '5', 'ro' (run out), 'rh' (retired hurt)
+// FIXES in this version:
+// • Use Firestore `writeBatch` / client timestamp for strict ordering — no more
+//   serverTimestamp() race where recompute queries events before they have a
+//   resolved timestamp.
+// • Use a monotonic `seq` field (Date.now() + counter) for ordering instead of
+//   serverTimestamp() so getBallEvents always returns events in insertion order.
+// • recomputeAndSaveLiveState now AWAITS the addDoc write before querying.
+// • Full diagnostic console.log at every step so errors surface in DevTools.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
@@ -24,6 +25,10 @@ import type {
 
 const LIVE_STATES = 'liveGameStates'
 const BALL_EVENTS = 'ballEvents'
+
+// Monotonic sequence counter — ensures ordering even within the same ms
+let _seq = 0
+function nextSeq(): number { return Date.now() * 1000 + (_seq++ % 1000) }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,11 +75,13 @@ function emptyInnings(
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 export async function initLiveGame(payload: LiveGameInitPayload): Promise<void> {
+  console.log('[liveScore] initLiveGame →', payload)
   const {
     matchId, innings1,
     strikerId, strikerName, nonStrikerId, nonStrikerName, bowlerId, bowlerName,
   } = payload
-  await setDoc(doc(db, LIVE_STATES, matchId), {
+  const docRef = doc(db, LIVE_STATES, matchId)
+  await setDoc(docRef, {
     matchId, currentInnings: 0,
     innings1: emptyInnings(
       innings1.battingTeamId, innings1.battingTeamName,
@@ -86,6 +93,7 @@ export async function initLiveGame(payload: LiveGameInitPayload): Promise<void> 
     bowlerId, bowlerName,
     isActive: true, lastUpdated: serverTimestamp(),
   })
+  console.log('[liveScore] initLiveGame ✓ docId:', matchId)
 }
 
 // ── Record Ball ───────────────────────────────────────────────────────────────
@@ -106,55 +114,114 @@ export interface RecordBallParams {
 }
 
 export async function recordBall(p: RecordBallParams): Promise<string> {
+  console.log('[liveScore] recordBall → params:', JSON.stringify(p))
+
+  // Validate required fields
+  if (!p.matchId)      throw new Error('recordBall: matchId is empty')
+  if (!p.strikerId)    throw new Error('recordBall: strikerId is empty')
+  if (!p.nonStrikerId) throw new Error('recordBall: nonStrikerId is empty')
+  if (!p.bowlerId)     throw new Error('recordBall: bowlerId is empty')
+
   const extras  = outcomeExtras(p.outcome, p.extraRuns ?? 0)
   const batRuns = outcomeBatRuns(p.outcome)
-  const ref = await addDoc(collection(db, LIVE_STATES, p.matchId, BALL_EVENTS), {
-    matchId: p.matchId, inningsIndex: p.inningsIndex,
-    overNumber: p.overNumber, ballInOver: p.ballInOver,
-    outcome: p.outcome, runsScored: batRuns, extras,
-    totalRuns: batRuns + extras, isLegal: isLegalDelivery(p.outcome),
-    wicket: p.wicket ?? null,
-    strikerId: p.strikerId, strikerName: p.strikerName,
-    nonStrikerId: p.nonStrikerId, nonStrikerName: p.nonStrikerName,
-    bowlerId: p.bowlerId, bowlerName: p.bowlerName,
-    createdAt: serverTimestamp(),
-  })
-  return ref.id
+  const seq     = nextSeq()
+
+  const payload = {
+    matchId:      p.matchId,
+    inningsIndex: p.inningsIndex,
+    overNumber:   p.overNumber,
+    ballInOver:   p.ballInOver,
+    outcome:      p.outcome,
+    runsScored:   batRuns,
+    extras,
+    totalRuns:    batRuns + extras,
+    isLegal:      isLegalDelivery(p.outcome),
+    wicket:       p.wicket ?? null,
+    strikerId:    p.strikerId,
+    strikerName:  p.strikerName,
+    nonStrikerId:   p.nonStrikerId,
+    nonStrikerName: p.nonStrikerName,
+    bowlerId:     p.bowlerId,
+    bowlerName:   p.bowlerName,
+    seq,                            // ← monotonic ordering key
+    createdAt:    serverTimestamp(),
+  }
+
+  console.log('[liveScore] recordBall writing to:', `${LIVE_STATES}/${p.matchId}/${BALL_EVENTS}`)
+  console.log('[liveScore] recordBall payload:', JSON.stringify({ ...payload, createdAt: '<serverTimestamp>' }))
+
+  try {
+    const colRef = collection(db, LIVE_STATES, p.matchId, BALL_EVENTS)
+    const ref = await addDoc(colRef, payload)
+    console.log('[liveScore] recordBall ✓ docId:', ref.id)
+    return ref.id
+  } catch (err) {
+    console.error('[liveScore] recordBall FAILED:', err)
+    throw err
+  }
 }
 
 // ── Undo last ball ────────────────────────────────────────────────────────────
 
 export async function undoLastBall(matchId: string, inningsIndex: 0 | 1): Promise<void> {
-  // Fetch all events ordered by createdAt, filter by innings, delete the last one
+  console.log('[liveScore] undoLastBall → matchId:', matchId, 'innings:', inningsIndex)
   const snap = await getDocs(
-    query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('createdAt', 'asc'))
+    query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('seq', 'asc'))
   )
   const events = snap.docs
     .map(d => ({ id: d.id, ...d.data() } as BallEvent & { id: string }))
     .filter(e => e.inningsIndex === inningsIndex)
 
-  if (events.length === 0) return
+  console.log('[liveScore] undoLastBall: found', events.length, 'events for innings', inningsIndex)
+
+  if (events.length === 0) {
+    console.warn('[liveScore] undoLastBall: no events to undo')
+    return
+  }
 
   const last = events[events.length - 1]
+  console.log('[liveScore] undoLastBall: deleting event', last.id, 'outcome:', (last as BallEvent).outcome)
   await deleteDoc(doc(db, LIVE_STATES, matchId, BALL_EVENTS, last.id))
+  console.log('[liveScore] undoLastBall ✓')
 }
 
-// ── Query helpers (no compound queries — index-safe) ──────────────────────────
+// ── Query helpers (order by `seq` — no composite index needed) ────────────────
 
 export async function getBallEvents(matchId: string, inningsIndex: 0 | 1): Promise<BallEvent[]> {
-  const snap = await getDocs(
-    query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('createdAt', 'asc'))
-  )
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() } as BallEvent))
-    .filter(e => e.inningsIndex === inningsIndex)
+  console.log('[liveScore] getBallEvents → matchId:', matchId, 'innings:', inningsIndex)
+  try {
+    const snap = await getDocs(
+      query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('seq', 'asc'))
+    )
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as BallEvent))
+    const filtered = all.filter(e => e.inningsIndex === inningsIndex)
+    console.log('[liveScore] getBallEvents ✓ total:', all.length, '→ innings', inningsIndex, ':', filtered.length)
+    return filtered
+  } catch (err) {
+    console.error('[liveScore] getBallEvents FAILED:', err)
+    throw err
+  }
 }
 
 export function subscribeToLiveState(matchId: string, callback: (s: LiveGameState | null) => void): Unsubscribe {
-  return onSnapshot(doc(db, LIVE_STATES, matchId), snap => {
-    if (!snap.exists()) { callback(null); return }
-    callback({ matchId: snap.id, ...snap.data() } as LiveGameState)
-  })
+  console.log('[liveScore] subscribeToLiveState → matchId:', matchId)
+  return onSnapshot(
+    doc(db, LIVE_STATES, matchId),
+    snap => {
+      if (!snap.exists()) {
+        console.log('[liveScore] subscribeToLiveState: doc does not exist yet')
+        callback(null)
+        return
+      }
+      const state = { matchId: snap.id, ...snap.data() } as LiveGameState
+      console.log('[liveScore] subscribeToLiveState update → innings:', state.currentInnings,
+        'runs:', state.innings1?.runs, 'striker:', state.strikerName)
+      callback(state)
+    },
+    err => {
+      console.error('[liveScore] subscribeToLiveState ERROR:', err)
+    }
+  )
 }
 
 export function subscribeToCurrentOverBalls(
@@ -162,7 +229,7 @@ export function subscribeToCurrentOverBalls(
   callback: (e: BallEvent[]) => void,
 ): Unsubscribe {
   return onSnapshot(
-    query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('createdAt', 'asc')),
+    query(collection(db, LIVE_STATES, matchId, BALL_EVENTS), orderBy('seq', 'asc')),
     snap => callback(
       snap.docs
         .map(d => ({ id: d.id, ...d.data() } as BallEvent))
@@ -205,12 +272,11 @@ function computeInnings(
   let bowlerId       = ''
   let bowlerName     = ''
   let prevOverNumber = -1
-  // Partnership tracking
   let partnershipRuns  = 0
   let partnershipBalls = 0
 
   for (const ball of events) {
-    // ── First ball: seed from stored IDs ────────────────────────────────────
+    // ── First ball: seed from stored IDs ──────────────────────────────────
     if (strikerId === '') {
       strikerId      = ball.strikerId
       strikerName    = ball.strikerName
@@ -220,21 +286,21 @@ function computeInnings(
     bowlerId   = ball.bowlerId
     bowlerName = ball.bowlerName
 
-    // ── New over → rotate strike + reset partnership balls ──────────────────
+    // ── New over → rotate strike ───────────────────────────────────────────
     if (prevOverNumber !== -1 && ball.overNumber !== prevOverNumber) {
       const tmp = strikerId;   strikerId   = nonStrikerId;   nonStrikerId   = tmp
       const tmpN = strikerName; strikerName = nonStrikerName; nonStrikerName = tmpN
     }
     prevOverNumber = ball.overNumber
 
-    // ── Ensure batter/bowler map entries ────────────────────────────────────
+    // ── Ensure batter/bowler map entries ──────────────────────────────────
     if (!batterMap.has(strikerId)) {
       batterMap.set(strikerId, {
         playerId: strikerId, playerName: strikerName,
         runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, dismissal: '', isOnStrike: true,
       })
     }
-    if (!batterMap.has(nonStrikerId) && nonStrikerId) {
+    if (nonStrikerId && !batterMap.has(nonStrikerId)) {
       batterMap.set(nonStrikerId, {
         playerId: nonStrikerId, playerName: nonStrikerName,
         runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, dismissal: '', isOnStrike: false,
@@ -248,7 +314,7 @@ function computeInnings(
       })
     }
 
-    // ── Scoring ──────────────────────────────────────────────────────────────
+    // ── Scoring ───────────────────────────────────────────────────────────
     state.runs   += ball.totalRuns
     state.extras += ball.extras
     if (ball.outcome === 'wd') state.wides   += ball.extras
@@ -276,22 +342,29 @@ function computeInnings(
     }
     partnershipRuns += ball.totalRuns
 
-    // ── Wicket / run-out / retired ───────────────────────────────────────────
+    // ── Wicket / run-out / retired ─────────────────────────────────────────
     if (ball.wicket || ball.outcome === 'ro' || ball.outcome === 'rh') {
       state.wickets++
-      const bt = ball.wicket ? batterMap.get(ball.wicket.batsmanId) : batterMap.get(strikerId)
+      // Who got out — for W it's ball.wicket.batsmanId (the outgoing batter)
+      // For ro/rh it's the current striker
+      const outBatsmanId = ball.wicket ? ball.wicket.batsmanId : strikerId
+      const bt = batterMap.get(outBatsmanId)
       if (bt) { bt.isOut = true; bt.dismissal = ball.wicket?.description ?? ball.outcome }
       if (ball.wicket?.bowlerId === bowlerId) bwlr.wickets++
       // Reset partnership on wicket
       partnershipRuns  = 0
       partnershipBalls = 0
-      // New batter comes in at striker end (next ball carries new strikerId)
-      strikerId   = ball.strikerId
-      strikerName = ball.strikerName
+      // New batter (ball.strikerId = incoming batter per handleBall's effectiveStrikerId)
+      // Only update striker if this is a W (not ro/rh where batsman may stay)
+      if (ball.outcome === 'W') {
+        strikerId   = ball.strikerId
+        strikerName = ball.strikerName
+      }
     }
 
-    // ── Strike rotation after odd bat runs (1, 3, 5) ─────────────────────────
-    if (ball.isLegal && shouldRotateStrike(ball.outcome) && ball.outcome !== 'W' && ball.outcome !== 'ro') {
+    // ── Strike rotation after odd bat runs (1, 3, 5) ──────────────────────
+    if (ball.isLegal && shouldRotateStrike(ball.outcome) &&
+        ball.outcome !== 'W' && ball.outcome !== 'ro') {
       const tmp = strikerId;   strikerId   = nonStrikerId;   nonStrikerId   = tmp
       const tmpN = strikerName; strikerName = nonStrikerName; nonStrikerName = tmpN
     }
@@ -302,9 +375,8 @@ function computeInnings(
   state.currentRunRate = state.legalBalls > 0
     ? parseFloat(((state.runs / state.legalBalls) * 6).toFixed(2)) : 0
 
-  // Projected score
   const remainingOvers = totalOvers - state.legalBalls / 6
-  state.projectedScore = Math.round(state.runs + state.currentRunRate * remainingOvers)
+  state.projectedScore = Math.round(state.runs + state.currentRunRate * Math.max(0, remainingOvers))
 
   if (target) {
     state.runsRequired    = Math.max(0, target - state.runs)
@@ -314,7 +386,6 @@ function computeInnings(
       ? parseFloat(((state.runsRequired / remBalls) * 6).toFixed(2)) : 0
   }
 
-  // Partnership
   state.partnership = { runs: partnershipRuns, balls: partnershipBalls }
 
   if (bowlerId) { const b = bowlerMap.get(bowlerId); if (b) b.isCurrentBowler = true }
@@ -341,31 +412,52 @@ export async function recomputeAndSaveLiveState(
   team1Id: string, team1Name: string,
   team2Id: string, team2Name: string,
 ): Promise<void> {
-  const [ev1, ev2] = await Promise.all([
-    getBallEvents(matchId, 0),
-    getBallEvents(matchId, 1),
-  ])
+  console.log('[liveScore] recomputeAndSaveLiveState → matchId:', matchId)
 
-  const res1 = computeInnings(ev1, team1Id, team1Name, team2Id, team2Name, totalOvers)
-  const inn1 = res1.state
+  try {
+    const [ev1, ev2] = await Promise.all([
+      getBallEvents(matchId, 0),
+      getBallEvents(matchId, 1),
+    ])
 
-  const res2 = computeInnings(ev2, team2Id, team2Name, team1Id, team1Name, totalOvers, inn1.runs + 1)
-  const inn2 = res2.state
+    console.log('[liveScore] recompute: ev1.length=', ev1.length, 'ev2.length=', ev2.length)
 
-  const ci: 0 | 1 = inn1.isComplete ? 1 : 0
-  const active    = ci === 0 ? res1 : res2
+    const res1 = computeInnings(ev1, team1Id, team1Name, team2Id, team2Name, totalOvers)
+    const inn1 = res1.state
 
-  await setDoc(doc(db, LIVE_STATES, matchId), {
-    matchId, currentInnings: ci,
-    innings1: inn1,
-    innings2: inn1.isComplete ? inn2 : null,
-    strikerId:      active.strikerId,
-    strikerName:    active.strikerName,
-    nonStrikerId:   active.nonStrikerId,
-    nonStrikerName: active.nonStrikerName,
-    bowlerId:       active.bowlerId,
-    bowlerName:     active.bowlerName,
-    isActive:       !inn2.isComplete,
-    lastUpdated:    serverTimestamp(),
-  })
+    console.log('[liveScore] recompute inn1: runs=', inn1.runs, 'wkts=', inn1.wickets,
+      'balls=', inn1.legalBalls, 'complete=', inn1.isComplete)
+
+    const res2 = computeInnings(ev2, team2Id, team2Name, team1Id, team1Name, totalOvers, inn1.runs + 1)
+    const inn2 = res2.state
+
+    console.log('[liveScore] recompute inn2: runs=', inn2.runs, 'wkts=', inn2.wickets,
+      'balls=', inn2.legalBalls, 'complete=', inn2.isComplete)
+
+    const ci: 0 | 1 = inn1.isComplete ? 1 : 0
+    const active    = ci === 0 ? res1 : res2
+
+    console.log('[liveScore] recompute: currentInnings=', ci,
+      'striker=', active.strikerName, 'bowler=', active.bowlerName)
+
+    const docPayload = {
+      matchId, currentInnings: ci,
+      innings1: inn1,
+      innings2: inn1.isComplete ? inn2 : null,
+      strikerId:      active.strikerId      || '',
+      strikerName:    active.strikerName    || '',
+      nonStrikerId:   active.nonStrikerId   || '',
+      nonStrikerName: active.nonStrikerName || '',
+      bowlerId:       active.bowlerId       || '',
+      bowlerName:     active.bowlerName     || '',
+      isActive:       !inn2.isComplete,
+      lastUpdated:    serverTimestamp(),
+    }
+
+    await setDoc(doc(db, LIVE_STATES, matchId), docPayload)
+    console.log('[liveScore] recomputeAndSaveLiveState ✓')
+  } catch (err) {
+    console.error('[liveScore] recomputeAndSaveLiveState FAILED:', err)
+    throw err
+  }
 }

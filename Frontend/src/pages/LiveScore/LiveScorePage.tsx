@@ -507,49 +507,83 @@ export default function LiveScorePage() {
     newBowler?: Player,
     newBatter?: Player,
   ) => {
-    if (!match || !liveState) return
+    console.group('[LiveScore] handleBall')
+    console.log('outcome:', outcome, '| match:', match?.id, '| liveState:', liveState ? 'ok' : 'NULL')
+
+    if (!match || !liveState) {
+      console.error('ABORT: match or liveState is null')
+      console.groupEnd()
+      return
+    }
+
     const ci  = liveState.currentInnings
     const inn = ci === 0 ? liveState.innings1 : liveState.innings2
-    if (!inn) return
+    console.log('currentInnings:', ci, '| inn:', inn ? 'ok' : 'NULL')
+
+    if (!inn) {
+      console.error('ABORT: innings object is null for ci=', ci)
+      console.groupEnd()
+      return
+    }
 
     const legalBalls = inn.legalBalls
     const overNumber = Math.floor(legalBalls / 6)
     const ballInOver = legalBalls % 6
 
-    // After a wicket the NEW batter becomes the striker for this delivery record
-    const effectiveStrikerId   = outcome === 'W' && newBatter ? newBatter.id   : liveState.strikerId
-    const effectiveStrikerName = outcome === 'W' && newBatter ? newBatter.name : liveState.strikerName
+    console.log('legalBalls:', legalBalls, '| over:', overNumber, '| ball:', ballInOver)
+    console.log('striker:', liveState.strikerId, liveState.strikerName)
+    console.log('nonStriker:', liveState.nonStrikerId, liveState.nonStrikerName)
+    console.log('bowler:', liveState.bowlerId, liveState.bowlerName)
+    console.log('newBatter:', newBatter?.name, '| newBowler:', newBowler?.name)
 
+    // For W: strikerId in ball = OUTGOING batter (who got out)
+    // effectiveStrikerId for W = incoming batter (so computeInnings seeds them)
+    const ballStrikerId   = liveState.strikerId
+    const ballStrikerName = liveState.strikerName
+    const effectiveStrikerId   = outcome === 'W' && newBatter ? newBatter.id   : ballStrikerId
+    const effectiveStrikerName = outcome === 'W' && newBatter ? newBatter.name : ballStrikerName
+
+    console.log('effectiveStrikerId:', effectiveStrikerId, effectiveStrikerName)
+
+    const params = {
+      matchId:        match.id,
+      inningsIndex:   ci,
+      overNumber,
+      ballInOver,
+      outcome,
+      strikerId:      effectiveStrikerId,
+      strikerName:    effectiveStrikerName,
+      nonStrikerId:   liveState.nonStrikerId,
+      nonStrikerName: liveState.nonStrikerName,
+      bowlerId:       newBowler?.id   ?? liveState.bowlerId,
+      bowlerName:     newBowler?.name ?? liveState.bowlerName,
+      wicket: outcome === 'W' && wicketDesc ? {
+        dismissalType: 'caught' as const,
+        batsmanId:     ballStrikerId,
+        batsmanName:   ballStrikerName,
+        bowlerId:      liveState.bowlerId,
+        bowlerName:    liveState.bowlerName,
+        description:   wicketDesc,
+      } : undefined,
+    }
+
+    console.log('calling recordBall...')
     try {
-      await recordBall({
-        matchId:        match.id,
-        inningsIndex:   ci,
-        overNumber,
-        ballInOver,
-        outcome,
-        strikerId:      effectiveStrikerId,
-        strikerName:    effectiveStrikerName,
-        nonStrikerId:   liveState.nonStrikerId,
-        nonStrikerName: liveState.nonStrikerName,
-        bowlerId:       newBowler?.id   ?? liveState.bowlerId,
-        bowlerName:     newBowler?.name ?? liveState.bowlerName,
-        wicket: outcome === 'W' && wicketDesc ? {
-          dismissalType: 'caught',
-          batsmanId:     liveState.strikerId,   // who got out
-          batsmanName:   liveState.strikerName,
-          bowlerId:      liveState.bowlerId,
-          bowlerName:    liveState.bowlerName,
-          description:   wicketDesc,
-        } : undefined,
-      })
+      const ballId = await recordBall(params)
+      console.log('recordBall OK, id:', ballId)
+
+      console.log('calling recomputeAndSaveLiveState...')
       await recomputeAndSaveLiveState(
         match.id, match.totalOvers,
         match.team1Id, match.team1Name,
         match.team2Id, match.team2Name,
       )
+      console.log('recomputeAndSaveLiveState OK')
     } catch (err) {
-      console.error('[handleBall] error:', err)
-      showToast('Failed to record ball.', 'error')
+      console.error('handleBall FAILED:', err)
+      showToast(`Record ball failed: ${err instanceof Error ? err.message : String(err)}`, 'error')
+    } finally {
+      console.groupEnd()
     }
   }, [match, liveState, showToast])
 

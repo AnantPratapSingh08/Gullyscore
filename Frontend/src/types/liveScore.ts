@@ -89,6 +89,14 @@ export interface BallEvent {
   bowlerId:   string
   bowlerName: string
 
+  /**
+   * Monotonic sequence number: Date.now() * 1000 + counter.
+   * Used for ordering instead of serverTimestamp() to avoid
+   * the race condition where recompute runs before the server
+   * timestamp is resolved.
+   */
+  seq: number
+
   /** Server timestamp */
   createdAt: Timestamp | null
 }
