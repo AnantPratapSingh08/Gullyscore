@@ -28,7 +28,7 @@ const NAV_CARDS: NavCard[] = [
     label:  'Team Management',
     desc:   'Create, edit, and manage your cricket teams. View rosters and invite codes.',
     route:  '/teams',
-    accent: 'var(--cyan)',
+    accent: '#22d3ee',
   },
   {
     id:     'card-my-teams',
@@ -37,6 +37,14 @@ const NAV_CARDS: NavCard[] = [
     desc:   'See all teams you own or belong to. Join a new team via invite code.',
     route:  '/my-teams',
     accent: '#34d399',
+  },
+  {
+    id:     'card-players',
+    icon:   '🧑‍🤝‍🧑',
+    label:  'Player Management',
+    desc:   'Add, edit, and remove players. Track batting & bowling statistics per player.',
+    route:  '/teams',
+    accent: '#a78bfa',
   },
   {
     id:     'card-matches',
@@ -50,7 +58,7 @@ const NAV_CARDS: NavCard[] = [
     id:     'card-live',
     icon:   '⚡',
     label:  'Live Scoring',
-    desc:   'Ball-by-ball live scoring console. Start from any in-progress match.',
+    desc:   'Ball-by-ball live scoring console. Open from any in-progress match.',
     route:  '/matches',
     accent: '#ef4444',
     badge:  'LIVE',
@@ -66,7 +74,7 @@ const NAV_CARDS: NavCard[] = [
   {
     id:     'card-tournaments',
     icon:   '🎯',
-    label:  'Tournaments',
+    label:  'Tournament Admin',
     desc:   'Organise and manage tournaments. Control brackets, teams, and schedules.',
     route:  '/tournaments',
     accent: '#22d3ee',
@@ -80,6 +88,7 @@ const NAV_CARDS: NavCard[] = [
     accent: '#f59e0b',
   },
 ]
+
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

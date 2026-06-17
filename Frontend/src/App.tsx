@@ -381,6 +381,9 @@ function AppRoutes() {
         <Route path="/tournaments"                    element={<TournamentsPage />} />
         <Route path="/tournaments/:tournamentId"      element={<TournamentSettingsPage />} />
         <Route path="/profile"                        element={<ProfilePage />} />
+        {/* Alias routes — required by spec */}
+        <Route path="/players"                        element={<Navigate to="/teams" replace />} />
+        <Route path="/live-score"                     element={<Navigate to="/matches" replace />} />
       </Route>
 
       {/* Catch-all */}

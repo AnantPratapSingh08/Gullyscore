@@ -140,9 +140,10 @@
 }
 
 .dash-nav-card:hover {
-  border-color: color-mix(in srgb, var(--card-accent, #22d3ee) 50%, transparent);
+  border-color: var(--card-accent, #22d3ee);
+  border-opacity: 0.5;
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--card-accent, #22d3ee) 12%, transparent);
+  box-shadow: 0 16px 40px rgba(34, 211, 238, 0.12);
 }
 
 .dash-nav-card:active {
@@ -162,7 +163,7 @@
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--card-accent, #22d3ee) 15%, transparent), transparent);
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.15), transparent);
   pointer-events: none;
   transition: opacity 0.25s;
   opacity: 0.6;
