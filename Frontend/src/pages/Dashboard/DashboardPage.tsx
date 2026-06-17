@@ -1,24 +1,98 @@
 // src/pages/Dashboard/DashboardPage.tsx
-import { useState } from 'react'
+// ─────────────────────────────────────────────────────────────────────────────
+// Main dashboard — wrapped in AppShell, shows feature nav cards + quick stats.
+// Every card has a working onClick → navigate() call.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import '../../styles/auth.css'
+import { AppShell } from '../../components/team/AppShell'
+import '../../styles/dashboard.css'
+
+// ── Nav Card data ─────────────────────────────────────────────────────────────
+
+interface NavCard {
+  id:       string
+  icon:     string
+  label:    string
+  desc:     string
+  route:    string
+  accent:   string
+  badge?:   string
+}
+
+const NAV_CARDS: NavCard[] = [
+  {
+    id:     'card-teams',
+    icon:   '🏆',
+    label:  'Team Management',
+    desc:   'Create, edit, and manage your cricket teams. View rosters and invite codes.',
+    route:  '/teams',
+    accent: 'var(--cyan)',
+  },
+  {
+    id:     'card-my-teams',
+    icon:   '👥',
+    label:  'My Teams',
+    desc:   'See all teams you own or belong to. Join a new team via invite code.',
+    route:  '/my-teams',
+    accent: '#34d399',
+  },
+  {
+    id:     'card-matches',
+    icon:   '🏏',
+    label:  'Match Management',
+    desc:   'Schedule matches, record results, and track head-to-head records.',
+    route:  '/matches',
+    accent: '#f59e0b',
+  },
+  {
+    id:     'card-live',
+    icon:   '⚡',
+    label:  'Live Scoring',
+    desc:   'Ball-by-ball live scoring console. Start from any in-progress match.',
+    route:  '/matches',
+    accent: '#ef4444',
+    badge:  'LIVE',
+  },
+  {
+    id:     'card-leaderboard',
+    icon:   '🥇',
+    label:  'Leaderboard',
+    desc:   'Real-time rankings — top scorers, wicket-takers, strike rates, and more.',
+    route:  '/leaderboard',
+    accent: '#a78bfa',
+  },
+  {
+    id:     'card-tournaments',
+    icon:   '🎯',
+    label:  'Tournaments',
+    desc:   'Organise and manage tournaments. Control brackets, teams, and schedules.',
+    route:  '/tournaments',
+    accent: '#22d3ee',
+  },
+  {
+    id:     'card-profile',
+    icon:   '👤',
+    label:  'User Profile',
+    desc:   'View your career stats, update your display name, and manage your account.',
+    route:  '/profile',
+    accent: '#f59e0b',
+  },
+]
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user, userProfile, logout } = useAuth()
+  const { user, userProfile } = useAuth()
   const navigate = useNavigate()
-  const [loggingOut, setLoggingOut] = useState(false)
 
-  // Resolve display name: Firestore profile → Firebase Auth displayName → email prefix
   const displayName =
     userProfile?.name ||
     user?.displayName ||
     user?.email?.split('@')[0] ||
     'Player'
 
-  const email = user?.email ?? ''
-
-  // Avatar initials
   const initials = displayName
     .split(' ')
     .map((w: string) => w[0])
@@ -26,95 +100,76 @@ export default function DashboardPage() {
     .join('')
     .toUpperCase()
 
-  const handleLogout = async () => {
-    setLoggingOut(true)
-    await logout()
-    navigate('/login', { replace: true })
-  }
+  const greeting = (() => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+  })()
 
   return (
-    <div className="dashboard-page">
-      {/* Background orbs */}
-      <div className="dashboard-orbs">
-        <div className="dashboard-orb dashboard-orb-1" />
-        <div className="dashboard-orb dashboard-orb-2" />
-      </div>
+    <AppShell>
+      <div className="dash-page">
 
-      {/* Sticky top nav */}
-      <nav className="dashboard-navbar">
-        <div className="dashboard-navbar-inner">
-          <a href="/" className="dashboard-logo">
-            <span className="dashboard-logo-icon">🏏</span>
-            <span className="dashboard-logo-text">GullyScore</span>
-          </a>
-          <button
-            id="dashboard-logout-btn"
-            className="dashboard-logout-btn"
-            onClick={handleLogout}
-            disabled={loggingOut}
-          >
-            {loggingOut ? (
-              <>
-                <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#fca5a5', borderRadius: '50%', animation: 'spin 0.65s linear infinite', display: 'inline-block' }} />
-                Signing out…
-              </>
-            ) : (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Logout
-              </>
-            )}
-          </button>
-        </div>
-      </nav>
-
-      {/* Page body */}
-      <main className="dashboard-body">
-        {/* Welcome banner */}
-        <div className="dashboard-welcome">
-          <div className="dashboard-avatar" aria-label={`${displayName} avatar`}>
-            {initials}
-          </div>
-          <div className="dashboard-welcome-text">
-            <h1 className="dashboard-greeting">
-              Welcome, <span>{displayName}</span> 🏏
+        {/* ── Welcome banner ───────────────────────────────────────────── */}
+        <div className="dash-welcome">
+          <div className="dash-welcome-avatar">{initials}</div>
+          <div className="dash-welcome-text">
+            <h1 className="dash-welcome-greeting">
+              {greeting}, <span className="dash-welcome-name">{displayName}</span> 🏏
             </h1>
-            <p className="dashboard-email">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <polyline points="22,6 12,13 2,6" />
-              </svg>
-              {email}
+            <p className="dash-welcome-sub">
+              {user?.email} · Ready to score some runs?
             </p>
           </div>
+          <div className="dash-welcome-badge">GullyScore HQ</div>
         </div>
 
-        {/* Stat cards */}
-        <div className="dashboard-cards">
-          {[
-            { icon: '🏏', label: 'Matches Played', value: '0' },
-            { icon: '⚡', label: 'Total Runs',     value: '0' },
-            { icon: '🎯', label: 'Wickets Taken',  value: '0' },
-            { icon: '🏆', label: 'Team Rank',      value: '—' },
-          ].map(card => (
-            <div key={card.label} className="dashboard-card">
-              <div className="dashboard-card-icon">{card.icon}</div>
-              <div className="dashboard-card-label">{card.label}</div>
-              <div className="dashboard-card-value">{card.value}</div>
-            </div>
+        {/* ── Section heading ──────────────────────────────────────────── */}
+        <div className="dash-section-header">
+          <h2 className="dash-section-title">Quick Access</h2>
+          <p className="dash-section-sub">Click any card to navigate</p>
+        </div>
+
+        {/* ── Navigation cards grid ────────────────────────────────────── */}
+        <div className="dash-cards-grid">
+          {NAV_CARDS.map(card => (
+            <button
+              key={card.id}
+              id={card.id}
+              className="dash-nav-card"
+              style={{ '--card-accent': card.accent } as React.CSSProperties}
+              onClick={() => navigate(card.route)}
+              type="button"
+            >
+              {/* Glow orb */}
+              <div className="dash-nav-card-glow" />
+
+              {/* Top row */}
+              <div className="dash-nav-card-top">
+                <div className="dash-nav-card-icon">{card.icon}</div>
+                {card.badge && (
+                  <span className="dash-nav-card-badge">{card.badge}</span>
+                )}
+              </div>
+
+              {/* Label */}
+              <h3 className="dash-nav-card-label">{card.label}</h3>
+
+              {/* Description */}
+              <p className="dash-nav-card-desc">{card.desc}</p>
+
+              {/* Arrow */}
+              <div className="dash-nav-card-arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
           ))}
         </div>
 
-        {/* Coming soon */}
-        <div className="dashboard-coming-soon">
-          <h3>🚀 More features coming soon</h3>
-          <p>Live scoring, team management, player analytics and leaderboards are on the way.</p>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }
