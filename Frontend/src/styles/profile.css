@@ -1,0 +1,422 @@
+/* src/styles/profile.css */
+/* Profile page — user card, career stats grid, account actions */
+
+/* ── Page layout ─────────────────────────────────────────────────────────── */
+
+.profile-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* ── Hero card ────────────────────────────────────────────────────────────── */
+
+.profile-header-section {}
+
+.profile-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 2rem 2.5rem;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at top left,
+    rgba(34, 211, 238, 0.06) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* ── Avatar ──────────────────────────────────────────────────────────────── */
+
+.profile-avatar-ring {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(135deg, #22d3ee, #a78bfa, #f59e0b);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+}
+
+.profile-avatar-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #0f1117;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #22d3ee;
+  letter-spacing: -0.02em;
+}
+
+/* ── Name / email / badges ───────────────────────────────────────────────── */
+
+.profile-hero-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile-display-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.profile-edit-pencil {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.profile-edit-pencil:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.profile-email {
+  font-size: 0.9rem;
+  color: rgba(241, 245, 249, 0.5);
+  margin: 0;
+  word-break: break-all;
+}
+
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.profile-badge {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.profile-badge--provider {
+  background: rgba(34, 211, 238, 0.12);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.profile-badge--joined {
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+/* ── Inline edit row ─────────────────────────────────────────────────────── */
+
+.profile-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-name-input {
+  flex: 1;
+  min-width: 160px;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-radius: 8px;
+  color: #f1f5f9;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.45rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.profile-name-input:focus {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  white-space: nowrap;
+}
+
+.profile-btn--save {
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+  color: #0f172a;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.25);
+}
+
+.profile-btn--save:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.45);
+  transform: translateY(-1px);
+}
+
+.profile-btn--cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+.profile-btn--secondary {
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+.profile-btn--secondary:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.22);
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.2);
+}
+
+.profile-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.profile-section-icon {
+  font-size: 1.1rem;
+}
+
+/* ── Career stats grid ────────────────────────────────────────────────────── */
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.profile-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-stat-card:hover {
+  border-color: rgba(34, 211, 238, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(34, 211, 238, 0.08);
+}
+
+.profile-stat-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #22d3ee;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.profile-stat-label {
+  font-size: 0.75rem;
+  color: rgba(241, 245, 249, 0.5);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Loading / empty states */
+.profile-stats-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(241, 245, 249, 0.5);
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+}
+
+.profile-stats-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile-empty-icon {
+  font-size: 2.5rem;
+}
+
+.profile-stats-empty p {
+  color: rgba(241, 245, 249, 0.5);
+  margin: 0;
+  max-width: 360px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ── Account actions ──────────────────────────────────────────────────────── */
+
+.profile-actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile-action-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  transition: border-color 0.2s;
+}
+
+.profile-action-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.profile-action-card--info {
+  cursor: default;
+}
+
+.profile-action-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.profile-action-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-action-info h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 0.2rem;
+}
+
+.profile-action-info p {
+  font-size: 0.82rem;
+  color: rgba(241, 245, 249, 0.5);
+  margin: 0;
+}
+
+.profile-uid {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem !important;
+  color: rgba(34, 211, 238, 0.7) !important;
+  word-break: break-all;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .profile-hero-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.5rem 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .profile-name-row,
+  .profile-badges {
+    justify-content: center;
+  }
+
+  .profile-edit-row {
+    justify-content: center;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profile-action-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-action-info p {
+    display: none;
+  }
+}

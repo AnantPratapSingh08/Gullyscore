@@ -44,6 +44,7 @@ export function AppShell({ children }: AppShellProps) {
     { to: '/matches',     label: 'Matches',     icon: '🏏' },
     { to: '/leaderboard', label: 'Leaderboard', icon: '🥇' },
     { to: '/tournaments', label: 'Tournaments', icon: '🎯' },
+    { to: '/profile',     label: 'Profile',     icon: '👤' },
   ]
 
   return (
@@ -81,10 +82,10 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Right side: avatar + logout */}
           <div className="shell-nav-right">
-            <div className="shell-user-chip">
+            <NavLink to="/profile" className="shell-user-chip" title="View Profile">
               <div className="shell-avatar">{initials}</div>
               <span className="shell-username">{displayName}</span>
-            </div>
+            </NavLink>
             <button
               id="shell-logout-btn"
               className="shell-logout-btn"

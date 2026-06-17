@@ -23,6 +23,7 @@ import TournamentsPage         from './pages/Tournament/TournamentsPage'
 import TournamentSettingsPage  from './pages/Tournament/TournamentSettingsPage'
 import LiveScorePage           from './pages/LiveScore/LiveScorePage'
 import LeaderboardPage         from './pages/Leaderboard/LeaderboardPage'
+import ProfilePage             from './pages/Profile/ProfilePage'
 import './App.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -379,6 +380,7 @@ function AppRoutes() {
         <Route path="/leaderboard"                    element={<LeaderboardPage />} />
         <Route path="/tournaments"                    element={<TournamentsPage />} />
         <Route path="/tournaments/:tournamentId"      element={<TournamentSettingsPage />} />
+        <Route path="/profile"                        element={<ProfilePage />} />
       </Route>
 
       {/* Catch-all */}
