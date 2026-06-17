@@ -257,7 +257,9 @@ function computeInnings(
   events: BallEvent[],
   battingTeamId: string, battingTeamName: string,
   bowlingTeamId: string, bowlingTeamName: string,
-  totalOvers: number, target?: number,
+  totalOvers: number,
+  target?: number,
+  playingXISize = 11,   // default standard cricket; override for custom squad sizes
 ): ComputedInnings {
   const state = emptyInnings(battingTeamId, battingTeamName, bowlingTeamId, bowlingTeamName)
   if (target) { state.target = target; state.runsRequired = target }
@@ -354,9 +356,11 @@ function computeInnings(
       // Reset partnership on wicket
       partnershipRuns  = 0
       partnershipBalls = 0
-      // New batter (ball.strikerId = incoming batter per handleBall's effectiveStrikerId)
-      // Only update striker if this is a W (not ro/rh where batsman may stay)
-      if (ball.outcome === 'W') {
+      // For W: ball.strikerId = incoming batter when one was selected,
+      // OR = outgoing batter when it's the last wicket (no new batter).
+      // Guard: only update strikerId when ball.strikerId is different from the
+      // outgoing batter — meaning an actual new batter was provided.
+      if (ball.outcome === 'W' && ball.strikerId !== outBatsmanId) {
         strikerId   = ball.strikerId
         strikerName = ball.strikerName
       }
@@ -391,7 +395,8 @@ function computeInnings(
   if (bowlerId) { const b = bowlerMap.get(bowlerId); if (b) b.isCurrentBowler = true }
 
   state.isComplete =
-    state.wickets >= 10 ||
+    // Standard: 10 wickets down  OR  custom squad size exhausted
+    state.wickets >= (playingXISize - 1) ||
     state.legalBalls >= totalOvers * 6 ||
     (!!target && state.runs >= target)
 
@@ -411,6 +416,7 @@ export async function recomputeAndSaveLiveState(
   matchId: string, totalOvers: number,
   team1Id: string, team1Name: string,
   team2Id: string, team2Name: string,
+  team1Size = 11, team2Size = 11,
 ): Promise<void> {
   console.log('[liveScore] recomputeAndSaveLiveState → matchId:', matchId)
 
@@ -422,13 +428,13 @@ export async function recomputeAndSaveLiveState(
 
     console.log('[liveScore] recompute: ev1.length=', ev1.length, 'ev2.length=', ev2.length)
 
-    const res1 = computeInnings(ev1, team1Id, team1Name, team2Id, team2Name, totalOvers)
+    const res1 = computeInnings(ev1, team1Id, team1Name, team2Id, team2Name, totalOvers, undefined, team1Size)
     const inn1 = res1.state
 
     console.log('[liveScore] recompute inn1: runs=', inn1.runs, 'wkts=', inn1.wickets,
       'balls=', inn1.legalBalls, 'complete=', inn1.isComplete)
 
-    const res2 = computeInnings(ev2, team2Id, team2Name, team1Id, team1Name, totalOvers, inn1.runs + 1)
+    const res2 = computeInnings(ev2, team2Id, team2Name, team1Id, team1Name, totalOvers, inn1.runs + 1, team2Size)
     const inn2 = res2.state
 
     console.log('[liveScore] recompute inn2: runs=', inn2.runs, 'wkts=', inn2.wickets,

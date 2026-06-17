@@ -132,6 +132,9 @@ function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPad
          !outIds.has(p.id)
   )
 
+  // Last wicket = no new batter is available → innings ends automatically
+  const isLastWicket = selected === 'W' && availableBatters.length === 0
+
   async function handleRecord() {
     if (!selected) return
     setSaving(true)
@@ -202,20 +205,34 @@ function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPad
       {selected === 'W' && (
         <div className="live-wicket-panel">
           <div className="live-wicket-title">🔴 Wicket Details</div>
+
+          {/* Dismissal description — always required */}
           <div className="team-form-field">
             <label className="team-form-label" htmlFor="wkt-desc">Dismissal (e.g. "c Sharma b Kumar")</label>
             <input id="wkt-desc" type="text" className="team-form-input" value={wicketDesc}
               onChange={e => setWicketDesc(e.target.value)} placeholder="c Sharma b Kumar" maxLength={80} />
           </div>
-          <div className="team-form-field" style={{ marginTop: 10 }}>
-            <label className="team-form-label" htmlFor="new-batter">New Batter (incoming)</label>
-            <select id="new-batter" className="team-form-input" value={newBatterId} onChange={e => setNewBatterId(e.target.value)}>
-              <option value="">— Select new batter —</option>
-              {availableBatters.map(p => (
-                <option key={p.id} value={p.id}>{p.name} #{p.jerseyNumber}</option>
-              ))}
-            </select>
-          </div>
+
+          {/* New batter — only shown when someone is available */}
+          {isLastWicket ? (
+            <div style={{
+              marginTop: 12, padding: '10px 14px',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: 10, fontSize: 13, color: '#f87171', fontWeight: 600,
+            }}>
+              🏁 Last wicket — innings will end automatically
+            </div>
+          ) : (
+            <div className="team-form-field" style={{ marginTop: 10 }}>
+              <label className="team-form-label" htmlFor="new-batter">New Batter (incoming)</label>
+              <select id="new-batter" className="team-form-input" value={newBatterId} onChange={e => setNewBatterId(e.target.value)}>
+                <option value="">— Select new batter —</option>
+                {availableBatters.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} #{p.jerseyNumber}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -224,7 +241,9 @@ function ScoringPad({ liveState, match, players1, players2, onBall }: ScoringPad
         onClick={handleRecord}
         disabled={
           !selected || saving ||
-          (selected === 'W' && (!wicketDesc || !newBatterId)) ||
+          // Wicket: always need dismissal text; new batter only needed if NOT last wicket
+          (selected === 'W' && !wicketDesc) ||
+          (selected === 'W' && !isLastWicket && !newBatterId) ||
           (isNewOver && !newBowlerId)
         }
       >
@@ -577,6 +596,8 @@ export default function LiveScorePage() {
         match.id, match.totalOvers,
         match.team1Id, match.team1Name,
         match.team2Id, match.team2Name,
+        players1.length || 11,
+        players2.length || 11,
       )
       console.log('recomputeAndSaveLiveState OK')
     } catch (err) {
@@ -595,6 +616,8 @@ export default function LiveScorePage() {
         match.id, match.totalOvers,
         match.team1Id, match.team1Name,
         match.team2Id, match.team2Name,
+        players1.length || 11,
+        players2.length || 11,
       )
       showToast('Last ball undone.', 'info')
     } catch (err) {
