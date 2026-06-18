@@ -1,21 +1,25 @@
 // src/pages/Dashboard/DashboardPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Tournament-centric home dashboard.
+// Tournament-centric home dashboard — V3 complete implementation.
 // Shows ONLY data for the active tournament:
-//   Live match, upcoming fixtures, points table, top players, join prompt.
+//   Live match · Upcoming fixtures · Recent results · Points Table
+//   Top Batsman · Top Bowler · Top Fielder · My Teams · My Stats
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { AppShell } from '../../components/team/AppShell'
-import { subscribeToAllMatches } from '../../services/matchService'
-import { getPlayersByTeam } from '../../services/playerService'
+import { subscribeToMatchesByTournament } from '../../services/matchService'
+import { subscribeToTournamentLeaderboard } from '../../services/leaderboardService'
+import { subscribeToMyTeams } from '../../services/teamService'
 import type { Match } from '../../types/match'
-import type { Player } from '../../types/player'
+import type { Team } from '../../types/team'
 import type { PointsTableEntry } from '../../types/tournament'
+import type { LeaderboardData } from '../../services/leaderboardService'
 import '../../styles/dashboard.css'
+import '../../styles/teams.css'
 
 // ── Join-by-code prompt ───────────────────────────────────────────────────────
 function JoinPrompt() {
@@ -30,7 +34,7 @@ function JoinPrompt() {
     const res = await joinByCode(code)
     if (res.ok) {
       setStatus('ok')
-      setMsg(`Joined "${res.tournament?.name}"!`)
+      setMsg(`Joined "${res.tournament?.name}"! 🎉`)
     } else {
       setStatus('err')
       setMsg(res.error ?? 'Unknown error')
@@ -62,7 +66,7 @@ function JoinPrompt() {
           {status === 'loading' ? <span className="team-spinner" /> : 'Join'}
         </button>
       </div>
-      {status === 'ok' && <div className="dash-join-success">✓ {msg}</div>}
+      {status === 'ok'  && <div className="dash-join-success">✓ {msg}</div>}
       {status === 'err' && <div className="dash-join-error">✗ {msg}</div>}
     </div>
   )
@@ -94,7 +98,7 @@ function LiveMatchCard({ match }: { match: Match }) {
   )
 }
 
-// ── Upcoming match ────────────────────────────────────────────────────────────
+// ── Upcoming match card ────────────────────────────────────────────────────────
 function UpcomingCard({ match }: { match: Match }) {
   const navigate = useNavigate()
   const date = new Date(match.scheduledAt)
@@ -112,7 +116,7 @@ function UpcomingCard({ match }: { match: Match }) {
   )
 }
 
-// ── Recent result ─────────────────────────────────────────────────────────────
+// ── Recent result card ─────────────────────────────────────────────────────────
 function ResultCard({ match }: { match: Match }) {
   const navigate = useNavigate()
   return (
@@ -130,23 +134,25 @@ function ResultCard({ match }: { match: Match }) {
 // ── Points table ──────────────────────────────────────────────────────────────
 function PointsTable({ entries }: { entries: PointsTableEntry[] }) {
   if (entries.length === 0) return null
+  const sorted = [...entries].sort((a, b) => b.points - a.points || b.nrr - a.nrr)
   return (
     <div className="dash-table-wrap">
       <div className="dash-section-title">🏅 Points Table</div>
       <table className="dash-table">
         <thead>
           <tr>
-            <th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>NRR</th><th>Pts</th>
+            <th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>T</th><th>NRR</th><th>Pts</th>
           </tr>
         </thead>
         <tbody>
-          {[...entries].sort((a, b) => b.points - a.points || b.nrr - a.nrr).map((e, i) => (
+          {sorted.map((e, i) => (
             <tr key={e.teamId} className={i === 0 ? 'dash-table-leader' : ''}>
               <td>{i + 1}</td>
-              <td><span>{e.teamLogo}</span> {e.teamName}</td>
+              <td><span>{e.teamLogo}</span> {e.teamName || '—'}</td>
               <td>{e.played}</td>
               <td>{e.won}</td>
               <td>{e.lost}</td>
+              <td>{e.tied}</td>
               <td className={e.nrr >= 0 ? 'pos' : 'neg'}>{e.nrr >= 0 ? '+' : ''}{e.nrr.toFixed(3)}</td>
               <td className="dash-table-pts">{e.points}</td>
             </tr>
@@ -157,26 +163,75 @@ function PointsTable({ entries }: { entries: PointsTableEntry[] }) {
   )
 }
 
-// ── Player stat card ──────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub: string; icon: string }) {
+// ── Stat award card ────────────────────────────────────────────────────────────
+function AwardCard({ icon, label, name, sub }: { icon: string; label: string; name: string; sub: string }) {
   return (
     <div className="dash-stat-card">
       <div className="dash-stat-icon">{icon}</div>
-      <div className="dash-stat-value">{value}</div>
       <div className="dash-stat-label">{label}</div>
+      <div className="dash-stat-value">{name}</div>
       <div className="dash-stat-sub">{sub}</div>
     </div>
   )
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// ── My Teams mini-card ─────────────────────────────────────────────────────────
+function MyTeamCard({ team }: { team: Team }) {
+  const navigate = useNavigate()
+  return (
+    <div className="dash-my-team-card" onClick={() => navigate(`/teams/${team.id}`)}>
+      <span className="dash-my-team-logo">{team.logo ?? '🏏'}</span>
+      <div className="dash-my-team-info">
+        <div className="dash-my-team-name">{team.teamName}</div>
+        <div className="dash-my-team-meta">{team.playerCount ?? 0} players</div>
+      </div>
+      <span className="dash-my-team-arrow">›</span>
+    </div>
+  )
+}
+
+// ── My Stats card ──────────────────────────────────────────────────────────────
+interface MyStats {
+  matches: number
+  runs: number
+  wickets: number
+  catches: number
+  strikeRate: number
+  economy: number
+  average: number
+}
+
+function MyStatsPanel({ stats }: { stats: MyStats }) {
+  const items = [
+    { label: 'Matches',  value: stats.matches },
+    { label: 'Runs',     value: stats.runs },
+    { label: 'Wickets',  value: stats.wickets },
+    { label: 'Avg',      value: stats.average.toFixed(1) },
+    { label: 'SR',       value: stats.strikeRate.toFixed(1) },
+    { label: 'Eco',      value: stats.economy > 0 ? stats.economy.toFixed(1) : '—' },
+    { label: 'Catches',  value: stats.catches },
+  ]
+  return (
+    <div className="dash-mystats-grid">
+      {items.map(item => (
+        <div key={item.label} className="dash-mystats-cell">
+          <span className="dash-mystats-value">{item.value}</span>
+          <span className="dash-mystats-label">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, userProfile } = useAuth()
   const { activeTournament, activeTournamentId, joinedTournaments, loading: tournamentLoading } = useActiveTournament()
   const navigate = useNavigate()
 
-  const [allMatches, setAllMatches] = useState<Match[]>([])
-  const [topPlayers, setTopPlayers] = useState<Player[]>([])
+  const [allMatches,   setAllMatches]   = useState<Match[]>([])
+  const [lb,           setLb]           = useState<LeaderboardData | null>(null)
+  const [myTeams,      setMyTeams]      = useState<Team[]>([])
 
   const displayName =
     userProfile?.name ||
@@ -198,35 +253,90 @@ export default function DashboardPage() {
     return 'Good evening'
   })()
 
-  // Subscribe to all matches, then filter by tournament
+  // ── Real-time: tournament-scoped matches ─────────────────────────────────
   useEffect(() => {
-    const unsub = subscribeToAllMatches(matches => {
-      const filtered = activeTournamentId
-        ? matches.filter(m => m.tournamentId === activeTournamentId)
-        : []
-      setAllMatches(filtered)
-    })
+    if (!activeTournamentId) { setAllMatches([]); return }
+    const unsub = subscribeToMatchesByTournament(activeTournamentId, setAllMatches)
     return unsub
   }, [activeTournamentId])
 
-  // Load top players from tournament teams
+  // ── Real-time: tournament-scoped leaderboard ──────────────────────────────
+  const teamIds = useMemo(() => activeTournament?.teamIds ?? [], [activeTournament])
   useEffect(() => {
-    if (!activeTournament?.teamIds?.length) { setTopPlayers([]); return }
-    Promise.all(activeTournament.teamIds.map(tid => getPlayersByTeam(tid)))
-      .then(all => {
-        const flat = all.flat()
-        flat.sort((a, b) => b.runs - a.runs)
-        setTopPlayers(flat.slice(0, 5))
-      })
-  }, [activeTournament])
+    const unsub = subscribeToTournamentLeaderboard(teamIds, setLb)
+    return unsub
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(teamIds)])
 
-  const liveMatch     = allMatches.find(m => m.status === 'live')
+  // ── Real-time: my teams ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) { setMyTeams([]); return }
+    const unsub = subscribeToMyTeams(user.uid, teams => {
+      // Filter to only teams in the active tournament
+      const tournTeamIds = activeTournament?.teamIds ?? []
+      setMyTeams(tournTeamIds.length > 0
+        ? teams.filter(t => tournTeamIds.includes(t.id))
+        : teams
+      )
+    })
+    return unsub
+  }, [user, activeTournament])
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const liveMatch       = allMatches.find(m => m.status === 'live')
   const upcomingMatches = allMatches.filter(m => m.status === 'upcoming').slice(0, 3)
   const recentResults   = allMatches.filter(m => m.status === 'completed').slice(0, 3)
-  const topBatter   = topPlayers[0]
-  const topWickets  = [...topPlayers].sort((a, b) => b.wickets - a.wickets)[0]
 
-  // Show join prompt if no tournaments joined
+  const topBatter  = lb?.topRunScorers[0]
+  const topBowler  = lb?.topWicketTakers[0]
+  const topFielder = lb ? [...(lb.mostCatches ?? []), ...(lb.mostRunOuts ?? [])]
+    .sort((a, b) => b.value - a.value)[0] : undefined
+
+  // My stats: aggregate across all players in my teams for this tournament
+  const myStats = useMemo<MyStats>(() => {
+    if (!lb || myTeams.length === 0) return { matches: 0, runs: 0, wickets: 0, catches: 0, strikeRate: 0, economy: 0, average: 0 }
+    // Collect my player entries from leaderboard (by teamId match)
+    const myTeamIds = new Set(myTeams.map(t => t.id))
+    const allEntries = [
+      ...(lb.topRunScorers ?? []),
+      ...(lb.topWicketTakers ?? []),
+    ]
+    const seen = new Set<string>()
+    let runs = 0, wickets = 0, catches = 0, matches = 0, totalSR = 0, totalEco = 0, srCount = 0, ecoCount = 0
+
+    for (const e of allEntries) {
+      if (!myTeamIds.has(e.teamId)) continue
+      if (seen.has(e.playerId)) continue
+      seen.add(e.playerId)
+      if (e.secondary !== undefined) { runs += e.value; matches = Math.max(matches, e.secondary) }
+    }
+    for (const e of lb.bestStrikeRate ?? []) {
+      if (!myTeamIds.has(e.teamId)) continue
+      totalSR += e.value; srCount++
+    }
+    for (const e of lb.bestEconomy ?? []) {
+      if (!myTeamIds.has(e.teamId)) continue
+      totalEco += e.value; ecoCount++
+    }
+    for (const e of [...(lb.mostCatches ?? []), ...(lb.mostRunOuts ?? [])]) {
+      if (myTeamIds.has(e.teamId)) catches += e.value
+    }
+    for (const e of lb.topWicketTakers ?? []) {
+      if (myTeamIds.has(e.teamId)) wickets += e.value
+    }
+    const average = matches > 0 ? parseFloat((runs / matches).toFixed(1)) : 0
+    return {
+      matches,
+      runs,
+      wickets,
+      catches,
+      strikeRate: srCount > 0 ? parseFloat((totalSR / srCount).toFixed(1)) : 0,
+      economy:    ecoCount > 0 ? parseFloat((totalEco / ecoCount).toFixed(1)) : 0,
+      average,
+    }
+  }, [lb, myTeams])
+
+  // ── No tournaments joined yet — show join prompt ──────────────────────────
   if (!tournamentLoading && joinedTournaments.length === 0) {
     return (
       <AppShell>
@@ -248,7 +358,7 @@ export default function DashboardPage() {
     <AppShell>
       <div className="dash-page">
 
-        {/* ── Welcome ────────────────────────────────────────────────────── */}
+        {/* ── Welcome ──────────────────────────────────────────────────── */}
         <div className="dash-welcome">
           <div className="dash-welcome-avatar">{initials}</div>
           <div className="dash-welcome-text">
@@ -257,7 +367,7 @@ export default function DashboardPage() {
             </h1>
             <p className="dash-welcome-sub">
               {activeTournament
-                ? `${activeTournament.name} · ${activeTournament.status}`
+                ? `${activeTournament.name} · ${activeTournament.format} · ${activeTournament.status}`
                 : 'Select a tournament from the top bar'}
             </p>
           </div>
@@ -277,20 +387,23 @@ export default function DashboardPage() {
 
         {!tournamentLoading && activeTournament && (
           <>
-            {/* ── Join another tournament ──────────────────────────────── */}
+            {/* ── Quick Actions ──────────────────────────────────────────── */}
             <div className="dash-actions-row">
-              <button className="dash-action-btn" onClick={() => navigate('/tournaments')}>
-                🎯 My Tournaments
-              </button>
-              <button className="dash-action-btn" onClick={() => navigate('/matches')}>
-                🏏 All Matches
+              <button className="dash-action-btn" onClick={() => navigate('/matches/new' as string) || navigate('/matches')}>
+                🏏 Schedule Match
               </button>
               <button className="dash-action-btn" onClick={() => navigate('/leaderboard')}>
                 🥇 Leaderboard
               </button>
+              <button className="dash-action-btn" onClick={() => navigate('/tournaments')}>
+                🎯 My Tournaments
+              </button>
+              <button className="dash-action-btn" onClick={() => navigate('/teams')}>
+                👥 Teams
+              </button>
             </div>
 
-            {/* ── Live Match ───────────────────────────────────────────── */}
+            {/* ── Live Match ─────────────────────────────────────────────── */}
             {liveMatch && (
               <div className="dash-section">
                 <div className="dash-section-title">⚡ Live Now</div>
@@ -298,7 +411,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ── Upcoming Fixtures ────────────────────────────────────── */}
+            {/* ── Upcoming Fixtures ──────────────────────────────────────── */}
             {upcomingMatches.length > 0 && (
               <div className="dash-section">
                 <div className="dash-section-title">📅 Upcoming</div>
@@ -308,7 +421,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ── Recent Results ───────────────────────────────────────── */}
+            {/* ── Recent Results ─────────────────────────────────────────── */}
             {recentResults.length > 0 && (
               <div className="dash-section">
                 <div className="dash-section-title">🏁 Recent Results</div>
@@ -318,58 +431,90 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ── Awards ──────────────────────────────────────────────── */}
-            {(topBatter || topWickets) && (
+            {/* ── Points Table ───────────────────────────────────────────── */}
+            {(activeTournament.pointsTable?.length ?? 0) > 0 && (
+              <div className="dash-section">
+                <PointsTable entries={activeTournament.pointsTable} />
+              </div>
+            )}
+
+            {/* ── Tournament Leaders ─────────────────────────────────────── */}
+            {(topBatter || topBowler || topFielder) && (
               <div className="dash-section">
                 <div className="dash-section-title">🏅 Tournament Leaders</div>
                 <div className="dash-stats-grid">
                   {topBatter && (
-                    <StatCard
+                    <AwardCard
                       icon="🟠"
                       label="Orange Cap"
-                      value={topBatter.name}
-                      sub={`${topBatter.runs} runs`}
+                      name={topBatter.playerName}
+                      sub={`${topBatter.value} runs · ${topBatter.teamName}`}
                     />
                   )}
-                  {topWickets && (
-                    <StatCard
+                  {topBowler && (
+                    <AwardCard
                       icon="🟣"
                       label="Purple Cap"
-                      value={topWickets.name}
-                      sub={`${topWickets.wickets} wickets`}
+                      name={topBowler.playerName}
+                      sub={`${topBowler.value} wickets · ${topBowler.teamName}`}
                     />
                   )}
-                  {activeTournament.awards?.bestFielder && (
-                    <StatCard
+                  {topFielder && (
+                    <AwardCard
                       icon="🧤"
                       label="Best Fielder"
-                      value={activeTournament.awards.bestFielder.playerName}
-                      sub={`${activeTournament.awards.bestFielder.dismissals} dismissals`}
+                      name={topFielder.playerName}
+                      sub={`${topFielder.value} dismissals · ${topFielder.teamName}`}
+                    />
+                  )}
+                  {activeTournament.awards?.bestEconomy && (
+                    <AwardCard
+                      icon="🎯"
+                      label="Best Economy"
+                      name={activeTournament.awards.bestEconomy.playerName}
+                      sub={`Eco ${activeTournament.awards.bestEconomy.economy.toFixed(2)}`}
                     />
                   )}
                 </div>
               </div>
             )}
 
-            {/* ── Points Table ─────────────────────────────────────────── */}
-            {activeTournament.pointsTable?.length > 0 && (
+            {/* ── My Teams ───────────────────────────────────────────────── */}
+            {myTeams.length > 0 && (
               <div className="dash-section">
-                <PointsTable entries={activeTournament.pointsTable} />
+                <div className="dash-section-title">👥 My Teams</div>
+                <div className="dash-my-teams-list">
+                  {myTeams.map(t => <MyTeamCard key={t.id} team={t} />)}
+                </div>
               </div>
             )}
 
-            {/* ── No matches yet ───────────────────────────────────────── */}
+            {/* ── My Stats (aggregated from tournament teams) ─────────────── */}
+            {(myStats.matches > 0 || myStats.runs > 0) && (
+              <div className="dash-section">
+                <div className="dash-section-title">📊 My Stats <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>· This Tournament</span></div>
+                <MyStatsPanel stats={myStats} />
+              </div>
+            )}
+
+            {/* ── No content yet ─────────────────────────────────────────── */}
             {allMatches.length === 0 && (
               <div className="teams-empty" style={{ marginTop: 40 }}>
                 <div className="teams-empty-icon">🏏</div>
                 <h2 className="teams-empty-title">No matches yet</h2>
-                <p className="teams-empty-sub">The tournament admin will schedule matches soon.</p>
+                <p className="teams-empty-sub">Schedule the first match to begin the tournament.</p>
+                <button
+                  className="team-btn team-btn--primary"
+                  onClick={() => navigate('/matches')}
+                >
+                  Go to Matches
+                </button>
               </div>
             )}
           </>
         )}
 
-        {/* ── No active tournament selected ────────────────────────────── */}
+        {/* ── No active tournament selected ──────────────────────────────── */}
         {!tournamentLoading && !activeTournament && joinedTournaments.length > 0 && (
           <JoinPrompt />
         )}

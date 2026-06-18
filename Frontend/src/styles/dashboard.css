@@ -412,8 +412,101 @@
   .dash-welcome { padding: 1.5rem; gap: 1rem; }
   .dash-welcome-badge { display: none; }
   .dash-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-actions-row { grid-template-columns: 1fr 1fr; }
+  .dash-mystats-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 400px) {
   .dash-welcome-avatar { width: 48px; height: 48px; font-size: 1.1rem; }
 }
+
+/* ── My Teams section ───────────────────────────────────────────────────── */
+.dash-my-teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.dash-my-team-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+.dash-my-team-card:hover {
+  background: rgba(34,211,238,0.08);
+  border-color: rgba(34,211,238,0.3);
+  transform: translateX(4px);
+}
+.dash-my-team-logo { font-size: 1.75rem; flex-shrink: 0; }
+.dash-my-team-info { flex: 1; min-width: 0; }
+.dash-my-team-name {
+  font-size: 0.95rem; font-weight: 700;
+  color: #e2e8f0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.dash-my-team-meta { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+.dash-my-team-arrow { color: #22d3ee; font-size: 1.4rem; flex-shrink: 0; }
+
+/* ── My Stats section ───────────────────────────────────────────────────── */
+.dash-mystats-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+@media (max-width: 900px) {
+  .dash-mystats-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 480px) {
+  .dash-mystats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.dash-mystats-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.85rem 0.5rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  text-align: center;
+}
+.dash-mystats-value {
+  font-size: 1.25rem; font-weight: 800;
+  color: #22d3ee; line-height: 1;
+  margin-bottom: 4px;
+}
+.dash-mystats-label {
+  font-size: 0.68rem; color: #64748b;
+  font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Actions row ────────────────────────────────────────────────────────── */
+.dash-actions-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+.dash-action-btn {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8;
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  text-align: center;
+}
+.dash-action-btn:hover {
+  background: rgba(34,211,238,0.1);
+  border-color: rgba(34,211,238,0.35);
+  color: #22d3ee;
+  transform: translateY(-2px);
+}
+

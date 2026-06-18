@@ -17,7 +17,8 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { commitMatchStats } from './playerStatsService'
-import { completeMatch }   from './matchService'
+import { completeMatch, getMatch } from './matchService'
+import { autoUpdatePointsTable } from './tournamentService'
 import type { MatchFormat } from '../types/player'
 import { db } from './firebase'
 import type {
@@ -513,6 +514,19 @@ export async function recomputeAndSaveLiveState(
       } catch (matchErr) {
         console.error('[liveScore] completeMatch failed (non-fatal):', matchErr)
       }
+
+      // Auto-update tournament points table + NRR
+      try {
+        const matchDocSnap = await getMatch(matchId)
+        const tid = matchDocSnap?.tournamentId
+        if (tid) {
+          await autoUpdatePointsTable(tid)
+          console.log('[liveScore] points table updated ✓ for tournament:', tid)
+        }
+      } catch (ptErr) {
+        console.error('[liveScore] autoUpdatePointsTable failed (non-fatal):', ptErr)
+      }
+
     }
   } catch (err) {
     console.error('[liveScore] recomputeAndSaveLiveState FAILED:', err)

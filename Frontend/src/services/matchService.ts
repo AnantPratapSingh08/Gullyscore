@@ -226,3 +226,37 @@ export function subscribeToLiveMatches(
     )
   )
 }
+
+/** Subscribe to all matches for a specific tournament (real-time). */
+export function subscribeToMatchesByTournament(
+  tournamentId: string,
+  callback: (matches: Match[]) => void
+): Unsubscribe {
+  if (!tournamentId) {
+    callback([])
+    return () => {}
+  }
+  return onSnapshot(
+    query(
+      collection(db, MATCHES),
+      where('tournamentId', '==', tournamentId),
+      orderBy('scheduledAt', 'desc')
+    ),
+    snap => callback(
+      snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
+    )
+  )
+}
+
+/** Get all completed matches for a tournament (one-time read for NRR calc). */
+export async function getCompletedMatchesByTournament(tournamentId: string): Promise<Match[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, MATCHES),
+      where('tournamentId', '==', tournamentId),
+      where('status', '==', 'completed')
+    )
+  )
+  return snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
+}
+
