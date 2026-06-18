@@ -10,12 +10,14 @@ import { TeamCard } from '../../components/team/TeamCard'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAllTeams } from '../../hooks/useTeams'
 import { useAuth } from '../../context/AuthContext'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { findTeamByInviteCode, joinTeam } from '../../services/teamService'
 import '../../styles/teams.css'
 
 export default function TeamsPage() {
   const { teams, loading } = useAllTeams()
   const { user } = useAuth()
+  const { activeTournament } = useActiveTournament()
   const navigate = useNavigate()
   const { toasts, showToast, dismissToast } = useToast()
 
@@ -24,8 +26,13 @@ export default function TeamsPage() {
   const [joiningCode, setJoiningCode]   = useState(false)
   const [showJoinPanel, setShowJoinPanel] = useState(false)
 
+  // Filter to active tournament teams only
+  const tournamentTeams = activeTournament?.teamIds?.length
+    ? teams.filter(t => activeTournament.teamIds.includes(t.id))
+    : teams
+
   // ── Search filter ────────────────────────────────────────────────────────
-  const filtered = teams.filter(t =>
+  const filtered = tournamentTeams.filter(t =>
     t.teamName.toLowerCase().includes(search.toLowerCase()) ||
     t.captain.toLowerCase().includes(search.toLowerCase())
   )

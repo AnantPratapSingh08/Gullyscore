@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  collection, doc, getDoc, getDocs, updateDoc,
+  collection, doc, getDoc, getDocs,
   query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -55,17 +55,7 @@ interface MatchFieldingLine {
   stumpings: number
 }
 
-interface PlayerMatchLines {
-  batting:  MatchBattingLine | null
-  bowling:  MatchBowlingLine | null
-  fielding: MatchFieldingLine
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function safeDiv(a: number, b: number): number {
-  return b === 0 ? 0 : parseFloat((a / b).toFixed(2))
-}
 
 function bestFigures(current: string, newWkts: number, newRuns: number): string {
   const [cW, cR] = current.split('/').map(Number)

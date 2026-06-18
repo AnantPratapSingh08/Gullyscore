@@ -35,7 +35,7 @@
 }
 .shell-navbar-inner {
   max-width:1200px;margin:0 auto;padding:0 24px;
-  height:64px;display:flex;align-items:center;gap:24px;
+  height:64px;display:flex;align-items:center;gap:16px;
 }
 .shell-logo { display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0; }
 .shell-logo-icon { font-size:22px; }
@@ -477,6 +477,25 @@
   padding:6px;border-radius:8px;transition:all .2s;flex-shrink:0;display:flex;
 }
 .player-remove-btn:hover { background:rgba(239,68,68,.1);color:#fca5a5; }
+
+/* ── Tournament switcher (in AppShell) ───────────────────────────────── */
+/* The full ts-* styles live in dashboard.css — this just ensures the      */
+/* switcher doesn't break the navbar layout.                               */
+.shell-navbar .ts-trigger {
+  font-size:13px;padding:0.4rem 0.8rem;
+  max-width:200px;flex-shrink:0;
+}
+.shell-tournament-bar {
+  display:none;padding:0.4rem 1rem;
+  border-top:1px solid rgba(255,255,255,0.05);
+  background:rgba(2,8,23,0.6);
+}
+.shell-tournament-bar .ts-trigger { max-width:none;width:100%; }
+
+@media (max-width:900px) {
+  .shell-navbar-inner { gap:10px; }
+  .shell-nav-links .shell-nav-link { padding:8px 10px;font-size:13px; }
+}
 
 /* ── Override root for team pages ────────────────── */
 body:has(.app-shell) #root {

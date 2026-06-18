@@ -11,6 +11,7 @@ import { MatchForm, type MatchFormData } from '../../components/match/MatchForm'
 import { ConfirmModal } from '../../components/common/ConfirmModal'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { createMatch, updateMatch, deleteMatch, subscribeToAllMatches } from '../../services/matchService'
 import { getAllTeams } from '../../services/teamService'
 import type { Match, MatchStatus } from '../../types/match'
@@ -65,9 +66,17 @@ function useMatchesData() {
 export default function MatchesPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { activeTournamentId, activeTournament } = useActiveTournament()
   const { toasts, showToast, dismissToast } = useToast()
 
   const { matches, teams, loading } = useMatchesData()
+
+  // Filter by active tournament
+  const tournamentMatches = useMemo(() =>
+    activeTournamentId
+      ? matches.filter(m => m.tournamentId === activeTournamentId)
+      : matches
+  , [matches, activeTournamentId])
 
   const [tab,     setTab]     = useState<MatchStatus | 'all'>('all')
   const [search,  setSearch]  = useState('')
@@ -80,7 +89,7 @@ export default function MatchesPage() {
   // ── Filtered matches ────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return matches.filter(m => {
+    return tournamentMatches.filter(m => {
       const matchesTab    = tab === 'all' || m.status === tab
       const matchesSearch = !q ||
         m.title.toLowerCase().includes(q)      ||
@@ -89,20 +98,20 @@ export default function MatchesPage() {
         m.venue.toLowerCase().includes(q)
       return matchesTab && matchesSearch
     })
-  }, [matches, tab, search])
+  }, [tournamentMatches, tab, search])
 
   const countByTab = useMemo(() => ({
-    all:       matches.length,
-    live:      matches.filter(m => m.status === 'live').length,
-    upcoming:  matches.filter(m => m.status === 'upcoming').length,
-    completed: matches.filter(m => m.status === 'completed').length,
-  }), [matches])
+    all:       tournamentMatches.length,
+    live:      tournamentMatches.filter(m => m.status === 'live').length,
+    upcoming:  tournamentMatches.filter(m => m.status === 'upcoming').length,
+    completed: tournamentMatches.filter(m => m.status === 'completed').length,
+  }), [tournamentMatches])
 
   // ── Create ──────────────────────────────────────────────────────────────
   async function handleCreate(data: MatchFormData) {
     if (!user) { showToast('Please log in.', 'error'); return }
     try {
-      const id = await createMatch({ ...data, tournamentId: '', createdBy: user.uid })
+      const id = await createMatch({ ...data, tournamentId: activeTournamentId || '', createdBy: user.uid })
       showToast('Match created! 🏏', 'success')
       setShowAdd(false)
       setTimeout(() => navigate(`/matches/${id}`), 600)
@@ -190,6 +199,7 @@ export default function MatchesPage() {
             <h1 className="matches-page-title">
               <span className="matches-page-title-icon">🏏</span>
               Matches
+              {activeTournament && <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', marginLeft: 8 }}>· {activeTournament.name}</span>}
             </h1>
             <p className="matches-page-subtitle">Browse, track, and manage cricket matches.</p>
           </div>

@@ -264,3 +264,61 @@ export function subscribeToLeaderboard(callback: (data: LeaderboardData) => void
 
   return () => { unsubPlayers(); unsubTeams() }
 }
+
+// ── Tournament-scoped leaderboard ─────────────────────────────────────────────
+
+/**
+ * Like subscribeToLeaderboard but filters to only players and teams in a
+ * specific tournament (by tournamentTeamIds array).
+ */
+export function subscribeToTournamentLeaderboard(
+  tournamentTeamIds: string[],
+  callback: (data: LeaderboardData) => void,
+): Unsubscribe {
+  if (tournamentTeamIds.length === 0) {
+    // No teams — emit empty leaderboard immediately
+    callback(computeLeaderboards([], []))
+    return () => {}
+  }
+
+  let players: Player[] = []
+  let teams:   Team[]   = []
+  let initialised = false
+
+  const recompute = () => {
+    if (!initialised) return
+    const filteredPlayers = players.filter(p => tournamentTeamIds.includes(p.teamId))
+    const filteredTeams   = teams.filter(t => tournamentTeamIds.includes(t.id))
+    callback(computeLeaderboards(filteredPlayers, filteredTeams))
+  }
+
+  const unsubPlayers = onSnapshot(
+    query(collection(db, 'players'), orderBy('runs', 'desc')),
+    snap => {
+      players = snap.docs.map(d => hydratePlayer(d.id, d.data() as Record<string, unknown>))
+      initialised = true
+      recompute()
+    },
+  )
+
+  const unsubTeams = onSnapshot(collection(db, 'teams'), snap => {
+    teams = snap.docs.map(d => {
+      const data = d.data() as Record<string, unknown>
+      return {
+        id:          d.id,
+        teamName:    (data.teamName    as string) ?? '',
+        logo:        (data.logo        as string) ?? '🏏',
+        captain:     (data.captain     as string) ?? '',
+        createdBy:   (data.createdBy   as string) ?? '',
+        inviteCode:  (data.inviteCode  as string) ?? '',
+        createdAt:   (data.createdAt   as Team['createdAt']) ?? null,
+        playerCount: (data.playerCount as number) ?? 0,
+      }
+    })
+    initialised = true
+    recompute()
+  })
+
+  return () => { unsubPlayers(); unsubTeams() }
+}
+

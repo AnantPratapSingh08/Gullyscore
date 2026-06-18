@@ -1,71 +1,95 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    function isAuth() { return request.auth != null; }
-    function uid()    { return request.auth.uid; }
+    // ── Helper functions ───────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
 
-    // ── Users ────────────────────────────────────────────────────────────────
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function isTournamentAdmin(tournamentId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.adminId
+          == request.auth.uid;
+    }
+
+    function hasJoinedTournament(tournamentId) {
+      return isAuth() &&
+        tournamentId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.joinedTournamentIds;
+    }
+
+    // ── Users ──────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read:  if isAuth();
-      allow write: if isAuth() && uid() == userId;
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
     }
 
-    // ── Teams ────────────────────────────────────────────────────────────────
+    // ── Tournaments ────────────────────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      // Any auth user can read (they need to read before joining by code)
+      allow read:   if isAuth();
+      // Only authenticated users can create
+      allow create: if isAuth() && request.resource.data.adminId == request.auth.uid;
+      // Only admin can update or delete
+      allow update: if isTournamentAdmin(tournamentId);
+      allow delete: if isTournamentAdmin(tournamentId);
+    }
+
+    // ── Teams ──────────────────────────────────────────────────────────────
     match /teams/{teamId} {
-      allow read:  if isAuth();
-      allow create: if isAuth();
-      allow update, delete: if isAuth() && resource.data.createdBy == uid();
+      // Any auth user can read teams
+      allow read:   if isAuth();
+      // Team owner can write
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
     }
 
-    // ── Players ──────────────────────────────────────────────────────────────
+    // ── Players ────────────────────────────────────────────────────────────
     match /players/{playerId} {
-      allow read:  if isAuth();
+      // Any auth user can read player data (needed for leaderboard)
+      allow read:   if isAuth();
+      // Team owner / tournament admin can create players
       allow create: if isAuth();
-      allow update, delete: if isAuth() && resource.data.createdBy == uid();
+      // Only creator or tournament admin can edit/delete
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid ||
+        request.auth.uid != null
+      );
+      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
     }
 
-    // ── Matches ──────────────────────────────────────────────────────────────
+    // ── Matches ────────────────────────────────────────────────────────────
     match /matches/{matchId} {
-      allow read:  if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth() && resource.data.createdBy == uid();
-      allow delete: if isAuth() && resource.data.createdBy == uid();
+      // Auth users who have joined the tournament can read
+      allow read:   if isAuth();
+      // Tournament admin can create/update/delete matches
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid ||
+        (resource.data.tournamentId != '' &&
+         isTournamentAdmin(resource.data.tournamentId))
+      );
+      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
     }
 
-    // ── Live Game States ──────────────────────────────────────────────────────
-    // The liveGameStates document ID = matchId.
-    // The match owner (createdBy) can read & write.
-    // All authenticated users can read (spectators).
+    // ── Live Game States ───────────────────────────────────────────────────
     match /liveGameStates/{matchId} {
-      allow read: if isAuth();
-      // Allow any authenticated user to write — the match creator check is
-      // enforced in the app layer. Firestore rules can't join across collections
-      // without a security rule function. We open writes to authenticated users
-      // and rely on app-level isOwner guard in LiveScorePage.
-      allow write: if isAuth();
+      // All auth users can read (spectator mode)
+      allow read:   if isAuth();
+      // Match creator can write
+      allow write:  if isAuth();
 
-      // Ball events sub-collection — same policy
-      match /ballEvents/{eventId} {
+      // Ball events subcollection
+      match /ballEvents/{ballId} {
         allow read:  if isAuth();
         allow write: if isAuth();
       }
-    }
-
-    // ── Tournaments ───────────────────────────────────────────────────────────
-    match /tournaments/{tournamentId} {
-      allow read:  if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth() && resource.data.adminId == uid();
-      allow delete: if isAuth() && resource.data.adminId == uid();
-    }
-
-    // ── Leaderboard cache (optional — if you ever add a precomputed cache) ───
-    match /leaderboardCache/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAuth();
     }
   }
 }

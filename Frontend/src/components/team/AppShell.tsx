@@ -1,20 +1,106 @@
 // src/components/team/AppShell.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared layout shell for all authenticated team pages.
-// Contains the sticky navbar with navigation links + logout.
+// Shared authenticated layout shell with:
+// • Tournament switcher dropdown in the navbar
+// • Mobile-responsive hamburger menu
+// • User avatar chip + logout
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
 
 interface AppShellProps {
   children: React.ReactNode
 }
 
+// ── Tournament Switcher ────────────────────────────────────────────────────────
+function TournamentSwitcher() {
+  const {
+    joinedTournaments, activeTournament, activeTournamentId,
+    setActiveTournamentId,
+  } = useActiveTournament()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (joinedTournaments.length === 0) {
+    return (
+      <div className="ts-empty">
+        <span className="ts-empty-icon">🎯</span>
+        <span className="ts-empty-text">No Tournament</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ts-wrap" ref={ref}>
+      <button
+        className="ts-trigger"
+        onClick={() => setOpen(v => !v)}
+        type="button"
+        id="tournament-switcher-btn"
+      >
+        <span className="ts-logo">{activeTournament?.logo ?? '🏆'}</span>
+        <span className="ts-name">{activeTournament?.name ?? 'Select Tournament'}</span>
+        <svg
+          className={`ts-chevron ${open ? 'ts-chevron--open' : ''}`}
+          width="12" height="12" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.5"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="ts-dropdown">
+          <div className="ts-dropdown-label">My Tournaments</div>
+          {joinedTournaments.map(t => (
+            <button
+              key={t.id}
+              className={`ts-option ${t.id === activeTournamentId ? 'ts-option--active' : ''}`}
+              onClick={() => { setActiveTournamentId(t.id); setOpen(false) }}
+              type="button"
+            >
+              <span className="ts-option-logo">{t.logo}</span>
+              <div className="ts-option-info">
+                <span className="ts-option-name">{t.name}</span>
+                <span className="ts-option-status">{t.status}</span>
+              </div>
+              {t.id === activeTournamentId && (
+                <span className="ts-option-check">✓</span>
+              )}
+            </button>
+          ))}
+          <div className="ts-dropdown-divider" />
+          <NavLink
+            to="/tournaments"
+            className="ts-manage-link"
+            onClick={() => setOpen(false)}
+          >
+            ⚙ Manage Tournaments
+          </NavLink>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AppShell ──────────────────────────────────────────────────────────────────
+
 export function AppShell({ children }: AppShellProps) {
   const { user, userProfile, logout } = useAuth()
   const navigate = useNavigate()
+  const { activeTournamentId } = useActiveTournament()
   const [loggingOut, setLoggingOut] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -38,13 +124,12 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   const navLinks = [
-    { to: '/dashboard',   label: 'Dashboard',   icon: '📊' },
-    { to: '/teams',       label: 'Teams',       icon: '🏆' },
-    { to: '/my-teams',    label: 'My Teams',    icon: '👥' },
-    { to: '/matches',     label: 'Matches',     icon: '🏏' },
-    { to: '/leaderboard', label: 'Leaderboard', icon: '🥇' },
-    { to: '/tournaments', label: 'Tournaments', icon: '🎯' },
-    { to: '/profile',     label: 'Profile',     icon: '👤' },
+    { to: '/dashboard',                              label: 'Home',        icon: '🏠' },
+    { to: '/matches',                                label: 'Matches',     icon: '🏏' },
+    { to: '/teams',                                  label: 'Teams',       icon: '🏆' },
+    { to: '/leaderboard',                            label: 'Leaderboard', icon: '🥇' },
+    { to: '/tournaments',                            label: 'Tournaments', icon: '🎯' },
+    { to: '/profile',                                label: 'Profile',     icon: '👤' },
   ]
 
   return (
@@ -64,6 +149,9 @@ export function AppShell({ children }: AppShellProps) {
             <span className="shell-logo-icon">🏏</span>
             <span className="shell-logo-text">GullyScore</span>
           </NavLink>
+
+          {/* Tournament Switcher */}
+          <TournamentSwitcher />
 
           {/* Desktop nav links */}
           <ul className="shell-nav-links">
@@ -114,6 +202,13 @@ export function AppShell({ children }: AppShellProps) {
             </button>
           </div>
         </div>
+
+        {/* Tournament banner — shows active tournament name on mobile */}
+        {activeTournamentId && (
+          <div className="shell-tournament-bar">
+            <TournamentSwitcher />
+          </div>
+        )}
 
         {/* Mobile dropdown */}
         {mobileMenuOpen && (

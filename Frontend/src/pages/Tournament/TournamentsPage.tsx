@@ -3,14 +3,16 @@
 // Tournament list page — browse all, create new, tab by status.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/team/AppShell'
 import { ConfirmModal } from '../../components/common/ConfirmModal'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 import {
-  subscribeToAllTournaments,
   createTournament,
   deleteTournament,
 } from '../../services/tournamentService'
@@ -251,24 +253,38 @@ const TABS: Array<{ label: string; value: TournamentStatus | 'all' }> = [
 export default function TournamentsPage() {
   const navigate = useNavigate()
   const { user, userProfile } = useAuth()
+  const { joinedTournaments, joinByCode, setActiveTournamentId } = useActiveTournament()
   const { toasts, showToast, dismissToast } = useToast()
 
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
-  const [loading,     setLoading]     = useState(true)
+  const [loading,     setLoading]     = useState(false)
   const [tab,         setTab]         = useState<TournamentStatus | 'all'>('all')
   const [search,      setSearch]      = useState('')
   const [showCreate,  setShowCreate]  = useState(false)
   const [deleting,    setDeleting]    = useState<Tournament | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // Real-time subscription
-  useEffect(() => {
-    const unsub = subscribeToAllTournaments(data => {
-      setTournaments(data)
-      setLoading(false)
-    })
-    return unsub
-  }, [])
+  // Join by code
+  const [joinCode,   setJoinCode]   = useState('')
+  const [joinStatus, setJoinStatus] = useState<'idle'|'loading'|'ok'|'err'>('idle')
+  const [joinMsg,    setJoinMsg]    = useState('')
+
+  async function handleJoin() {
+    if (!joinCode.trim()) return
+    setJoinStatus('loading')
+    const res = await joinByCode(joinCode)
+    if (res.ok) {
+      setJoinStatus('ok')
+      setJoinMsg(`Joined "${res.tournament?.name}"!`)
+      setJoinCode('')
+      if (res.tournament) setActiveTournamentId(res.tournament.id)
+    } else {
+      setJoinStatus('err')
+      setJoinMsg(res.error ?? 'Unknown error')
+    }
+  }
+
+  // Use joined tournaments from context
+  const tournaments = joinedTournaments
 
   // Filtered list
   const filtered = useMemo(() => {
@@ -284,17 +300,22 @@ export default function TournamentsPage() {
   async function handleCreate(data: Parameters<CreateFormProps['onSubmit']>[0]) {
     if (!user) { showToast('Please log in.', 'error'); return }
     try {
+      setLoading(true)
       const { id, code } = await createTournament({
         ...data,
         adminId:   user.uid,
         adminName: userProfile?.name || user.displayName || user.email || 'Admin',
       })
+      // Auto-join the creator — update user's joinedTournamentIds directly
+      await updateDoc(doc(db, 'users', user.uid), { joinedTournamentIds: arrayUnion(id) }).catch(() => {})
       showToast(`Tournament created! 🏆 Code: ${code}`, 'success')
       setShowCreate(false)
       setTimeout(() => navigate(`/tournaments/${id}`), 600)
     } catch {
       showToast('Failed to create tournament.', 'error')
       throw new Error('create failed')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -342,14 +363,13 @@ export default function TournamentsPage() {
       />
 
       <div className="matches-page">
-        {/* Header */}
         <div className="matches-page-header">
           <div className="matches-page-title-block">
             <h1 className="matches-page-title">
               <span className="matches-page-title-icon">🏆</span>
-              Tournaments
+              My Tournaments
             </h1>
-            <p className="matches-page-subtitle">Organise and manage cricket tournaments.</p>
+            <p className="matches-page-subtitle">Tournaments you have joined or created.</p>
           </div>
           <button id="create-tournament-btn" className="team-btn team-btn--primary" onClick={() => setShowCreate(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -357,6 +377,33 @@ export default function TournamentsPage() {
             </svg>
             New Tournament
           </button>
+        </div>
+
+        {/* Join by code */}
+        <div className="dash-join-prompt" style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>🔑 Join via Code</div>
+          <div className="dash-join-row">
+            <input
+              id="join-code-input"
+              type="text"
+              className="dash-join-input"
+              placeholder="Enter 6-char code…"
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            />
+            <button
+              id="join-by-code-btn"
+              className="dash-join-btn"
+              onClick={handleJoin}
+              disabled={joinStatus === 'loading'}
+            >
+              {joinStatus === 'loading' ? <span className="team-spinner" /> : 'Join'}
+            </button>
+          </div>
+          {joinStatus === 'ok'  && <div className="dash-join-success">✓ {joinMsg}</div>}
+          {joinStatus === 'err' && <div className="dash-join-error">✗ {joinMsg}</div>}
         </div>
 
         {/* Tabs */}

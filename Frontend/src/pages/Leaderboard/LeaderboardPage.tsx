@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react'
 import { AppShell } from '../../components/team/AppShell'
 import { useToast, ToastContainer } from '../../components/common/Toast'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import {
-  subscribeToLeaderboard,
+  subscribeToTournamentLeaderboard,
   type LeaderboardData,
   type PlayerRankEntry,
   type TeamRankEntry,
@@ -230,17 +231,22 @@ function LbSection({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function LeaderboardPage() {
   const { toasts, dismissToast } = useToast()
+  const { activeTournament } = useActiveTournament()
   const [activeKey, setActiveKey] = useState<CategoryKey>('runs')
   const [data,    setData]    = useState<LeaderboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const teamIds = activeTournament?.teamIds ?? []
+
   useEffect(() => {
-    const unsub = subscribeToLeaderboard(lb => {
+    setLoading(true)
+    const unsub = subscribeToTournamentLeaderboard(teamIds, lb => {
       setData(lb)
       setLoading(false)
     })
     return unsub
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(teamIds)])
 
   const activeCat = CATEGORIES.find(c => c.key === activeKey)!
 
@@ -255,8 +261,9 @@ export default function LeaderboardPage() {
             <h1 className="lb-title">
               <span className="lb-title-icon">🏆</span>
               Leaderboard
+              {activeTournament && <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', marginLeft: 8 }}>· {activeTournament.name}</span>}
             </h1>
-            <p className="lb-subtitle">Real-time rankings across all players and teams</p>
+            <p className="lb-subtitle">Real-time rankings for this tournament</p>
             {data && (
               <div className="lb-updated">
                 <span className="lb-updated-dot" />

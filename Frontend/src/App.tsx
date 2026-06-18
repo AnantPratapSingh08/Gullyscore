@@ -7,6 +7,7 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ActiveTournamentProvider } from './context/ActiveTournamentContext'
 import { ProtectedRoute } from './components/common/ProtectedRoute'
 import { LoginPage }    from './pages/Login'
 import { SignupPage }   from './pages/Signup'
@@ -398,7 +399,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ActiveTournamentProvider>
+          <AppRoutes />
+        </ActiveTournamentProvider>
       </AuthProvider>
     </BrowserRouter>
   )
