@@ -16,6 +16,9 @@ import {
   query, orderBy, onSnapshot, serverTimestamp,
   type Unsubscribe,
 } from 'firebase/firestore'
+import { commitMatchStats } from './playerStatsService'
+import { completeMatch }   from './matchService'
+import type { MatchFormat } from '../types/player'
 import { db } from './firebase'
 import type {
   BallEvent, BallOutcome, DismissalType,
@@ -417,6 +420,7 @@ export async function recomputeAndSaveLiveState(
   team1Id: string, team1Name: string,
   team2Id: string, team2Name: string,
   team1Size = 11, team2Size = 11,
+  matchFormat: MatchFormat = 'T20',
 ): Promise<void> {
   console.log('[liveScore] recomputeAndSaveLiveState → matchId:', matchId)
 
@@ -462,6 +466,54 @@ export async function recomputeAndSaveLiveState(
 
     await setDoc(doc(db, LIVE_STATES, matchId), docPayload)
     console.log('[liveScore] recomputeAndSaveLiveState ✓')
+
+    // ── Auto-complete: commit stats + update match when match ends ─────────
+    if (inn2.isComplete) {
+      console.log('[liveScore] match complete → committing player stats')
+
+      // Determine result
+      let result: 'team1' | 'team2' | 'tie' | 'no_result' = 'tie'
+      let resultSummary = 'Match tied'
+
+      if (inn2.runs >= (inn1.runs + 1)) {
+        // Team 2 (chasing) won
+        result = 'team2'
+        const margin = (inn1.runs + 1) - (inn2.runs - inn2.runs + inn2.runs)
+        const runsNeeded = inn1.runs + 1
+        const wicketsLeft = (team2Size - 1) - inn2.wickets
+        resultSummary = `${inn2.battingTeamName} won by ${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}`
+        void margin // suppress unused
+        void runsNeeded
+      } else if (inn2.runs < inn1.runs + 1) {
+        // Team 1 (batting first) won
+        result = 'team1'
+        const margin = inn1.runs - inn2.runs
+        resultSummary = `${inn1.battingTeamName} won by ${margin} run${margin !== 1 ? 's' : ''}`
+      }
+
+      // Commit player stats (idempotent — guarded by statsCommitted flag)
+      try {
+        await commitMatchStats({
+          matchId,
+          format:  matchFormat,
+          result,
+          team1Id,
+          team2Id,
+        })
+        console.log('[liveScore] player stats committed ✓')
+      } catch (statsErr) {
+        console.error('[liveScore] player stats commit failed (non-fatal):', statsErr)
+        // Non-fatal — live state is already saved; stats can be retried
+      }
+
+      // Mark match as completed in the matches collection
+      try {
+        await completeMatch(matchId, result, resultSummary)
+        console.log('[liveScore] match completed ✓ result:', result, resultSummary)
+      } catch (matchErr) {
+        console.error('[liveScore] completeMatch failed (non-fatal):', matchErr)
+      }
+    }
   } catch (err) {
     console.error('[liveScore] recomputeAndSaveLiveState FAILED:', err)
     throw err

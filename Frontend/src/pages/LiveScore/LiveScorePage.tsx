@@ -598,6 +598,7 @@ export default function LiveScorePage() {
         match.team2Id, match.team2Name,
         players1.length || 11,
         players2.length || 11,
+        match.format,
       )
       console.log('recomputeAndSaveLiveState OK')
     } catch (err) {
@@ -618,6 +619,7 @@ export default function LiveScorePage() {
         match.team2Id, match.team2Name,
         players1.length || 11,
         players2.length || 11,
+        match.format,
       )
       showToast('Last ball undone.', 'info')
     } catch (err) {
