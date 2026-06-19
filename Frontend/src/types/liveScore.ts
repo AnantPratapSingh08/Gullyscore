@@ -214,6 +214,21 @@ export interface LiveGameState {
 
   /** Server timestamp of last update */
   lastUpdated: Timestamp | null
+
+  // ── Initial players tracking (to preserve states when no events exist) ──
+  innings1InitStrikerId?: string
+  innings1InitStrikerName?: string
+  innings1InitNonStrikerId?: string
+  innings1InitNonStrikerName?: string
+  innings1InitBowlerId?: string
+  innings1InitBowlerName?: string
+
+  innings2InitStrikerId?: string
+  innings2InitStrikerName?: string
+  innings2InitNonStrikerId?: string
+  innings2InitNonStrikerName?: string
+  innings2InitBowlerId?: string
+  innings2InitBowlerName?: string
 }
 
 // ── Write payload for initialising a live game ────────────────────────────────

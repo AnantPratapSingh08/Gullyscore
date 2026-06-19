@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { subscribeToMatch, startMatch } from '../../services/matchService'
 import { getPlayersByTeam } from '../../services/playerService'
 import {
-  initLiveGame, recordBall, subscribeToLiveState, recomputeAndSaveLiveState, undoLastBall,
+  initLiveGame, recordBall, subscribeToLiveState, recomputeAndSaveLiveState, undoLastBall, startSecondInnings,
 } from '../../services/liveScoreService'
 import type { Match } from '../../types/match'
 import type { Player } from '../../types/player'
@@ -47,9 +47,19 @@ function ballCls(o: BallOutcome): string {
 interface SetupPanelProps {
   players1: Player[]
   players2: Player[]
+  title?: string
+  subtitle?: string
+  buttonText?: string
   onStart: (striker: Player, nonStriker: Player, bowler: Player) => Promise<void>
 }
-function SetupPanel({ players1, players2, onStart }: SetupPanelProps) {
+function SetupPanel({
+  players1,
+  players2,
+  title = 'Set Up Live Scoring',
+  subtitle = 'Choose opening batters and first bowler to begin ball-by-ball scoring.',
+  buttonText = '▶ Start Live Scoring',
+  onStart,
+}: SetupPanelProps) {
   const [strikerId,    setStrikerId]    = useState('')
   const [nonStrikerId, setNonStrikerId] = useState('')
   const [bowlerId,     setBowlerId]     = useState('')
@@ -81,8 +91,8 @@ function SetupPanel({ players1, players2, onStart }: SetupPanelProps) {
   return (
     <div className="live-setup-panel">
       <div className="live-setup-icon">🏏</div>
-      <h2 className="live-setup-title">Set Up Live Scoring</h2>
-      <p className="live-setup-sub">Choose opening batters and first bowler to begin ball-by-ball scoring.</p>
+      <h2 className="live-setup-title">{title}</h2>
+      <p className="live-setup-sub">{subtitle}</p>
       <div className="live-setup-form">
         {sel('Striker (batting)', 'setup-striker', strikerId, setStrikerId, allBatters)}
         {sel('Non-Striker',       'setup-non',     nonStrikerId, setNonStrikerId, allBatters.filter(p => p.id !== strikerId))}
@@ -93,7 +103,7 @@ function SetupPanel({ players1, players2, onStart }: SetupPanelProps) {
           onClick={handleStart}
           disabled={!strikerId || !nonStrikerId || !bowlerId || loading}
         >
-          {loading ? <><span className="team-spinner" /> Starting…</> : '▶ Start Live Scoring'}
+          {loading ? <><span className="team-spinner" /> Starting…</> : buttonText}
         </button>
       </div>
     </div>
@@ -519,6 +529,28 @@ export default function LiveScorePage() {
     } catch { showToast('Failed to start.', 'error') }
   }, [match, showToast])
 
+  const handleStartChase = useCallback(async (striker: Player, nonStriker: Player, bowler: Player) => {
+    if (!match) return
+    try {
+      await startSecondInnings(
+        match.id,
+        striker.id, striker.name,
+        nonStriker.id, nonStriker.name,
+        bowler.id, bowler.name,
+        match.totalOvers,
+        match.team1Id, match.team1Name,
+        match.team2Id, match.team2Name,
+        players1.length || 11,
+        players2.length || 11,
+        match.format,
+      )
+      showToast('Chase started! Good luck to both teams. 🏏', 'success')
+    } catch (err) {
+      console.error('[handleStartChase] error:', err)
+      showToast('Failed to start chase.', 'error')
+    }
+  }, [match, players1.length, players2.length, showToast])
+
   const handleBall = useCallback(async (
     outcome: BallOutcome,
     _extra?: string,
@@ -650,6 +682,7 @@ export default function LiveScorePage() {
   }
 
   const gameEnded = liveState?.innings2?.isComplete ?? false
+  const isInningsBreak = !!liveState && liveState.innings1?.isComplete && liveState.currentInnings === 0
 
   return (
     <AppShell>
@@ -689,40 +722,76 @@ export default function LiveScorePage() {
         {(match.status === 'live' || (match.status === 'completed' && liveState)) && liveState && (
           <>
             <Scoreboard liveState={liveState} match={match} />
-            <CurrentOverTicker liveState={liveState} />
 
-            <div className="live-layout">
-              <div className="live-layout-main">
-                <BattersTable liveState={liveState} />
-                <BowlersTable liveState={liveState} />
-              </div>
-              <div className="live-layout-aside">
-                {isOwner && !gameEnded && match.status === 'live' && (
-                  <>
-                    <ScoringPad
-                      liveState={liveState}
-                      match={match}
-                      players1={players1}
-                      players2={players2}
-                      onBall={handleBall}
-                    />
-                    <button
-                      id="undo-ball-btn"
-                      className="live-record-btn"
-                      style={{ marginTop: 8, background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}
-                      onClick={handleUndo}
-                    >
-                      ↩ Undo Last Ball
-                    </button>
-                  </>
-                )}
-                {!isOwner && (
-                  <div className="live-spectator-note">
-                    👀 Watching live — scores update automatically
+            {isInningsBreak ? (
+              /* Innings break screen */
+              isOwner ? (
+                <div className="innings-break-setup-container" style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 24 }}>
+                  <div className="live-spectator-note" style={{ background: 'rgba(167, 139, 250, 0.08)', borderColor: 'rgba(167, 139, 250, 0.3)', color: '#e2e8f0', textAlign: 'center', padding: '24px', borderRadius: '12px' }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>☕ Innings Break</div>
+                    <div style={{ fontSize: 16 }}><strong>{match.team1Name}</strong> finished their innings at <strong>{liveState.innings1.runs}/{liveState.innings1.wickets}</strong> ({liveState.innings1.oversDecimal} overs).</div>
+                    <div style={{ color: '#22d3ee', fontSize: 20, fontWeight: 800, marginTop: 12 }}>Target: {liveState.innings1.runs + 1} runs from {match.totalOvers} overs.</div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <SetupPanel
+                    players1={players2}
+                    players2={players1}
+                    title="Set Up Chase (2nd Innings)"
+                    subtitle={`Select opening batters for ${match.team2Name} and opening bowler for ${match.team1Name} to start the chase.`}
+                    buttonText="▶ Start Chase"
+                    onStart={handleStartChase}
+                  />
+                </div>
+              ) : (
+                <div className="live-result-overlay" style={{ background: 'rgba(30, 41, 59, 0.7)', marginTop: 24, position: 'relative', transform: 'none', left: 'auto', top: 'auto', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="live-result-icon">☕</div>
+                  <div className="live-result-title" style={{ color: '#22d3ee' }}>Innings Break</div>
+                  <div className="live-result-sub" style={{ fontSize: 16, marginTop: 12 }}>
+                    <strong>{match.team1Name}</strong> finished their innings at <strong>{liveState.innings1.runs}/{liveState.innings1.wickets}</strong> ({liveState.innings1.oversDecimal} overs).
+                  </div>
+                  <div className="live-result-sub" style={{ color: '#a78bfa', fontSize: 20, fontWeight: 800, marginTop: 12 }}>
+                    Target: {liveState.innings1.runs + 1} runs required off {match.totalOvers * 6} balls.
+                  </div>
+                </div>
+              )
+            ) : (
+              /* When not in innings break, show normal scoring layout */
+              <>
+                <CurrentOverTicker liveState={liveState} />
+
+                <div className="live-layout">
+                  <div className="live-layout-main">
+                    <BattersTable liveState={liveState} />
+                    <BowlersTable liveState={liveState} />
+                  </div>
+                  <div className="live-layout-aside">
+                    {isOwner && !gameEnded && match.status === 'live' && (
+                      <>
+                        <ScoringPad
+                          liveState={liveState}
+                          match={match}
+                          players1={players1}
+                          players2={players2}
+                          onBall={handleBall}
+                        />
+                        <button
+                          id="undo-ball-btn"
+                          className="live-record-btn"
+                          style={{ marginTop: 8, background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}
+                          onClick={handleUndo}
+                        >
+                          ↩ Undo Last Ball
+                        </button>
+                      </>
+                    )}
+                    {!isOwner && (
+                      <div className="live-spectator-note">
+                        👀 Watching live — scores update automatically
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

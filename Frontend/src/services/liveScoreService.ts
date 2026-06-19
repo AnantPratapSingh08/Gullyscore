@@ -95,6 +95,12 @@ export async function initLiveGame(payload: LiveGameInitPayload): Promise<void> 
     strikerId, strikerName,
     nonStrikerId, nonStrikerName,
     bowlerId, bowlerName,
+    innings1InitStrikerId: strikerId,
+    innings1InitStrikerName: strikerName,
+    innings1InitNonStrikerId: nonStrikerId,
+    innings1InitNonStrikerName: nonStrikerName,
+    innings1InitBowlerId: bowlerId,
+    innings1InitBowlerName: bowlerName,
     isActive: true, lastUpdated: serverTimestamp(),
   })
   console.log('[liveScore] initLiveGame ✓ docId:', matchId)
@@ -264,9 +270,49 @@ function computeInnings(
   totalOvers: number,
   target?: number,
   playingXISize = 11,   // default standard cricket; override for custom squad sizes
+  initStriker?: { id: string; name: string },
+  initNonStriker?: { id: string; name: string },
+  initBowler?: { id: string; name: string },
 ): ComputedInnings {
   const state = emptyInnings(battingTeamId, battingTeamName, bowlingTeamId, bowlingTeamName)
   if (target) { state.target = target; state.runsRequired = target }
+
+  const finalXI = playingXISize && playingXISize > 0 ? playingXISize : 11
+
+  if (events.length === 0) {
+    if (initStriker) {
+      state.batters.push({
+        playerId: initStriker.id, playerName: initStriker.name,
+        runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, dismissal: '', isOnStrike: true,
+      })
+    }
+    if (initNonStriker) {
+      state.batters.push({
+        playerId: initNonStriker.id, playerName: initNonStriker.name,
+        runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, dismissal: '', isOnStrike: false,
+      })
+    }
+    if (initBowler) {
+      state.bowlers.push({
+        playerId: initBowler.id, playerName: initBowler.name,
+        overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0, wides: 0, noBalls: 0, isCurrentBowler: true,
+      })
+    }
+    if (target) {
+      state.runsRequired = target
+      state.ballsRemaining = totalOvers * 6
+      state.requiredRunRate = parseFloat(((target / state.ballsRemaining) * 6).toFixed(2))
+    }
+    return {
+      state,
+      strikerId: initStriker?.id || '',
+      strikerName: initStriker?.name || '',
+      nonStrikerId: initNonStriker?.id || '',
+      nonStrikerName: initNonStriker?.name || '',
+      bowlerId: initBowler?.id || '',
+      bowlerName: initBowler?.name || '',
+    }
+  }
 
   const batterMap = new Map<string, LiveBatterEntry>()
   const bowlerMap = new Map<string, LiveBowlerEntry>()
@@ -399,8 +445,7 @@ function computeInnings(
   if (bowlerId) { const b = bowlerMap.get(bowlerId); if (b) b.isCurrentBowler = true }
 
   state.isComplete =
-    // Standard: 10 wickets down  OR  custom squad size exhausted
-    state.wickets >= (playingXISize - 1) ||
+    state.wickets >= (finalXI - 1) ||
     state.legalBalls >= totalOvers * 6 ||
     (!!target && state.runs >= target)
 
@@ -433,43 +478,125 @@ export async function recomputeAndSaveLiveState(
 
     console.log('[liveScore] recompute: ev1.length=', ev1.length, 'ev2.length=', ev2.length)
 
-    const res1 = computeInnings(ev1, team1Id, team1Name, team2Id, team2Name, totalOvers, undefined, team1Size)
+    const currentGameState = await getLiveState(matchId)
+
+    const inn1InitStriker = currentGameState?.innings1InitStrikerId
+      ? { id: currentGameState.innings1InitStrikerId, name: currentGameState.innings1InitStrikerName || '' }
+      : undefined
+    const inn1InitNonStriker = currentGameState?.innings1InitNonStrikerId
+      ? { id: currentGameState.innings1InitNonStrikerId, name: currentGameState.innings1InitNonStrikerName || '' }
+      : undefined
+    const inn1InitBowler = currentGameState?.innings1InitBowlerId
+      ? { id: currentGameState.innings1InitBowlerId, name: currentGameState.innings1InitBowlerName || '' }
+      : undefined
+
+    const inn2InitStriker = currentGameState?.innings2InitStrikerId
+      ? { id: currentGameState.innings2InitStrikerId, name: currentGameState.innings2InitStrikerName || '' }
+      : undefined
+    const inn2InitNonStriker = currentGameState?.innings2InitNonStrikerId
+      ? { id: currentGameState.innings2InitNonStrikerId, name: currentGameState.innings2InitNonStrikerName || '' }
+      : undefined
+    const inn2InitBowler = currentGameState?.innings2InitBowlerId
+      ? { id: currentGameState.innings2InitBowlerId, name: currentGameState.innings2InitBowlerName || '' }
+      : undefined
+
+    const res1 = computeInnings(
+      ev1,
+      team1Id, team1Name,
+      team2Id, team2Name,
+      totalOvers,
+      undefined,
+      team1Size,
+      inn1InitStriker,
+      inn1InitNonStriker,
+      inn1InitBowler
+    )
     const inn1 = res1.state
 
     console.log('[liveScore] recompute inn1: runs=', inn1.runs, 'wkts=', inn1.wickets,
       'balls=', inn1.legalBalls, 'complete=', inn1.isComplete)
 
-    const res2 = computeInnings(ev2, team2Id, team2Name, team1Id, team1Name, totalOvers, inn1.runs + 1, team2Size)
+    const res2 = computeInnings(
+      ev2,
+      team2Id, team2Name,
+      team1Id, team1Name,
+      totalOvers,
+      inn1.runs + 1,
+      team2Size,
+      inn2InitStriker,
+      inn2InitNonStriker,
+      inn2InitBowler
+    )
     const inn2 = res2.state
 
     console.log('[liveScore] recompute inn2: runs=', inn2.runs, 'wkts=', inn2.wickets,
       'balls=', inn2.legalBalls, 'complete=', inn2.isComplete)
 
-    const ci: 0 | 1 = inn1.isComplete ? 1 : 0
+    // Innings transition logic: currentInnings is only 1 if innings 1 is complete AND the chase has been started.
+    const isChaseStarted = !!currentGameState && currentGameState.currentInnings === 1
+    const ci: 0 | 1 = (inn1.isComplete && isChaseStarted) ? 1 : 0
     const active    = ci === 0 ? res1 : res2
 
     console.log('[liveScore] recompute: currentInnings=', ci,
       'striker=', active.strikerName, 'bowler=', active.bowlerName)
 
-    const docPayload = {
+    const docPayload: any = {
       matchId, currentInnings: ci,
       innings1: inn1,
-      innings2: inn1.isComplete ? inn2 : null,
+      innings2: (inn1.isComplete && isChaseStarted) ? inn2 : null,
       strikerId:      active.strikerId      || '',
       strikerName:    active.strikerName    || '',
       nonStrikerId:   active.nonStrikerId   || '',
       nonStrikerName: active.nonStrikerName || '',
       bowlerId:       active.bowlerId       || '',
       bowlerName:     active.bowlerName     || '',
-      isActive:       !inn2.isComplete,
+      isActive:       !(inn1.isComplete && isChaseStarted && inn2.isComplete),
       lastUpdated:    serverTimestamp(),
     }
 
+    // Preserve initial values so setDoc doesn't wipe them out
+    if (currentGameState) {
+      if (currentGameState.innings1InitStrikerId) {
+        docPayload.innings1InitStrikerId = currentGameState.innings1InitStrikerId
+        docPayload.innings1InitStrikerName = currentGameState.innings1InitStrikerName
+        docPayload.innings1InitNonStrikerId = currentGameState.innings1InitNonStrikerId
+        docPayload.innings1InitNonStrikerName = currentGameState.innings1InitNonStrikerName
+        docPayload.innings1InitBowlerId = currentGameState.innings1InitBowlerId
+        docPayload.innings1InitBowlerName = currentGameState.innings1InitBowlerName
+      }
+      if (currentGameState.innings2InitStrikerId) {
+        docPayload.innings2InitStrikerId = currentGameState.innings2InitStrikerId
+        docPayload.innings2InitStrikerName = currentGameState.innings2InitStrikerName
+        docPayload.innings2InitNonStrikerId = currentGameState.innings2InitNonStrikerId
+        docPayload.innings2InitNonStrikerName = currentGameState.innings2InitNonStrikerName
+        docPayload.innings2InitBowlerId = currentGameState.innings2InitBowlerId
+        docPayload.innings2InitBowlerName = currentGameState.innings2InitBowlerName
+      }
+    }
+
     await setDoc(doc(db, LIVE_STATES, matchId), docPayload)
-    console.log('[liveScore] recomputeAndSaveLiveState ✓')
+    console.log('[liveScore] recomputeAndSaveLiveState ✓ liveState saved')
+
+    // Sync to matches collection denormalized fields
+    try {
+      const matchDocRef = doc(db, 'matches', matchId)
+      await setDoc(matchDocRef, {
+        team1Score: inn1.runs,
+        team1Wickets: inn1.wickets,
+        team1Overs: inn1.oversDecimal,
+        team2Score: (inn1.isComplete && isChaseStarted) ? inn2.runs : 0,
+        team2Wickets: (inn1.isComplete && isChaseStarted) ? inn2.wickets : 0,
+        team2Overs: (inn1.isComplete && isChaseStarted) ? inn2.oversDecimal : 0,
+        innings1: inn1,
+        innings2: (inn1.isComplete && isChaseStarted) ? inn2 : null,
+      }, { merge: true })
+      console.log('[liveScore] matches collection doc synchronized ✓')
+    } catch (syncErr) {
+      console.error('[liveScore] syncing matches doc failed:', syncErr)
+    }
 
     // ── Auto-complete: commit stats + update match when match ends ─────────
-    if (inn2.isComplete) {
+    if (inn1.isComplete && isChaseStarted && inn2.isComplete) {
       console.log('[liveScore] match complete → committing player stats')
 
       // Determine result
@@ -479,12 +606,8 @@ export async function recomputeAndSaveLiveState(
       if (inn2.runs >= (inn1.runs + 1)) {
         // Team 2 (chasing) won
         result = 'team2'
-        const margin = (inn1.runs + 1) - (inn2.runs - inn2.runs + inn2.runs)
-        const runsNeeded = inn1.runs + 1
         const wicketsLeft = (team2Size - 1) - inn2.wickets
         resultSummary = `${inn2.battingTeamName} won by ${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}`
-        void margin // suppress unused
-        void runsNeeded
       } else if (inn2.runs < inn1.runs + 1) {
         // Team 1 (batting first) won
         result = 'team1'
@@ -504,7 +627,6 @@ export async function recomputeAndSaveLiveState(
         console.log('[liveScore] player stats committed ✓')
       } catch (statsErr) {
         console.error('[liveScore] player stats commit failed (non-fatal):', statsErr)
-        // Non-fatal — live state is already saved; stats can be retried
       }
 
       // Mark match as completed in the matches collection
@@ -526,10 +648,53 @@ export async function recomputeAndSaveLiveState(
       } catch (ptErr) {
         console.error('[liveScore] autoUpdatePointsTable failed (non-fatal):', ptErr)
       }
-
     }
   } catch (err) {
     console.error('[liveScore] recomputeAndSaveLiveState FAILED:', err)
     throw err
   }
+}
+
+export async function startSecondInnings(
+  matchId: string,
+  strikerId: string, strikerName: string,
+  nonStrikerId: string, nonStrikerName: string,
+  bowlerId: string, bowlerName: string,
+  totalOvers: number,
+  team1Id: string, team1Name: string,
+  team2Id: string, team2Name: string,
+  team1Size = 11, team2Size = 11,
+  matchFormat: MatchFormat = 'T20',
+): Promise<void> {
+  console.log('[liveScore] startSecondInnings → matchId:', matchId)
+  const docRef = doc(db, LIVE_STATES, matchId)
+  const snap = await getDoc(docRef)
+  if (!snap.exists()) throw new Error('Live game state not found')
+  const data = snap.data() as LiveGameState
+
+  // Update live state with second innings init players and set currentInnings to 1
+  await setDoc(docRef, {
+    ...data,
+    currentInnings: 1,
+    strikerId, strikerName,
+    nonStrikerId, nonStrikerName,
+    bowlerId, bowlerName,
+    innings2InitStrikerId: strikerId,
+    innings2InitStrikerName: strikerName,
+    innings2InitNonStrikerId: nonStrikerId,
+    innings2InitNonStrikerName: nonStrikerName,
+    innings2InitBowlerId: bowlerId,
+    innings2InitBowlerName: bowlerName,
+    lastUpdated: serverTimestamp(),
+  })
+
+  console.log('[liveScore] startSecondInnings initialized. Recomputing...')
+  await recomputeAndSaveLiveState(
+    matchId, totalOvers,
+    team1Id, team1Name,
+    team2Id, team2Name,
+    team1Size, team2Size,
+    matchFormat
+  )
+  console.log('[liveScore] startSecondInnings completed successfully ✓')
 }

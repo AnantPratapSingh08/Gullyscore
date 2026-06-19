@@ -82,13 +82,17 @@ service cloud.firestore {
     match /liveGameStates/{matchId} {
       // All auth users can read (spectator mode)
       allow read:   if isAuth();
-      // Match creator can write
-      allow write:  if isAuth();
+      // Only match creator can write
+      allow write:  if isAuth() && (
+        get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+      );
 
       // Ball events subcollection
       match /ballEvents/{ballId} {
         allow read:  if isAuth();
-        allow write: if isAuth();
+        allow write: if isAuth() && (
+          get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+        );
       }
     }
   }
