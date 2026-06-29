@@ -10,7 +10,7 @@ import { ConfirmModal } from '../../components/common/ConfirmModal'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, setDoc, arrayUnion } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import {
   createTournament,
@@ -306,8 +306,22 @@ export default function TournamentsPage() {
         adminId:   user.uid,
         adminName: userProfile?.name || user.displayName || user.email || 'Admin',
       })
-      // Auto-join the creator — update user's joinedTournamentIds directly
-      await updateDoc(doc(db, 'users', user.uid), { joinedTournamentIds: arrayUnion(id) }).catch(() => {})
+      // Auto-join the creator & grant tournament_admin role
+      // Use setDoc+merge so it works even if the user doc was created without joinedTournamentIds
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { joinedTournamentIds: arrayUnion(id) },
+        { merge: true }
+      )
+      // Persist tournament_admin role so RoleContext can read it on next load
+      await setDoc(
+        doc(db, 'users', user.uid, 'tournamentRoles', id),
+        { role: 'tournament_admin', grantedAt: new Date().toISOString() },
+        { merge: true }
+      )
+      // ⬇ CRITICAL: make this the active tournament immediately so RoleContext
+      // sees activeTournament.adminId === user.uid on the very next render.
+      setActiveTournamentId(id)
       showToast(`Tournament created! 🏆 Code: ${code}`, 'success')
       setShowCreate(false)
       setTimeout(() => navigate(`/tournaments/${id}`), 600)

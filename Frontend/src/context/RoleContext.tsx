@@ -157,6 +157,7 @@ function computePermissions(role: AppRole) {
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { activeTournamentId, activeTournament } = useActiveTournament()
+  const activeTournamentAdminId = activeTournament?.adminId ?? ''
   const [globalRole,     setGlobalRoleState]     = useState<AppRole>('spectator')
   const [tournamentRole, setTournamentRoleState] = useState<AppRole | null>(null)
   const [loading,        setLoading]             = useState(true)
@@ -180,8 +181,26 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }).catch(() => setLoading(false))
   }, [user, activeTournamentId])
 
+  // ── Self-heal: if creator has no tournament_admin role written yet, write it ─
+  useEffect(() => {
+    if (!user || !activeTournamentId || !activeTournamentAdminId) return
+    if (activeTournamentAdminId !== user.uid) return
+    if (tournamentRole === 'tournament_admin' || tournamentRole === 'super_admin') return
+    // Creator is missing their Firestore role — write it now (idempotent)
+    setDoc(
+      doc(db, 'users', user.uid, 'tournamentRoles', activeTournamentId),
+      { role: 'tournament_admin', grantedAt: new Date().toISOString() },
+      { merge: true }
+    ).then(() => {
+      setTournamentRoleState('tournament_admin')
+    }).catch(() => { /* non-fatal */ })
+  // Use adminId (string) not activeTournament (object) to avoid firing on every snapshot
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activeTournamentId, activeTournamentAdminId, tournamentRole])
+
   let effectiveRole = computeEffectiveRole(globalRole, tournamentRole)
-  if (user && activeTournament && activeTournament.adminId === user.uid) {
+  // In-memory elevation: creator always gets tournament_admin regardless of Firestore lag
+  if (user && activeTournamentAdminId && activeTournamentAdminId === user.uid) {
     if (ROLE_PRIORITY[effectiveRole] < ROLE_PRIORITY.tournament_admin) {
       effectiveRole = 'tournament_admin'
     }
