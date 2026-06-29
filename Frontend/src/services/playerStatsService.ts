@@ -15,7 +15,7 @@
 
 import {
   collection, doc, getDoc, getDocs,
-  query, orderBy, writeBatch,
+  query, orderBy, where, writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { BallEvent } from '../types/liveScore'
@@ -414,4 +414,92 @@ export async function commitMatchStats(p: CommitMatchStatsParams): Promise<void>
   // ── Commit ────────────────────────────────────────────────────────────────
   await batch.commit()
   console.log('[playerStats] commitMatchStats ✓ — batch committed for', allPlayerIds.size, 'players')
+}
+
+// ── Stat Recalculation Engine (Phase 3) ──────────────────────────────────────
+//
+// When a completed match is deleted, cancelled, edited, or voided, the
+// additive commitMatchStats is no longer valid. We must RESET all player
+// stats for the tournament and REPLAY every remaining completed match.
+//
+// Algorithm:
+//  1. Fetch all players in the tournament (via tournamentId field).
+//  2. Reset their stats to zero.
+//  3. Fetch all completed matches for the tournament.
+//  4. For each completed match that has a liveGameState, replay ball events
+//     and re-commit stats (clearing the statsCommitted flag first).
+//  5. Write all updates atomically.
+//
+// This function is IDEMPOTENT — safe to call multiple times.
+
+function zeroPlayerStats(): Record<string, unknown> {
+  return {
+    matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, economy: 0,
+    batting:     emptyBattingStats(),
+    bowling:     emptyBowlingStats(),
+    fielding:    emptyFieldingStats(),
+    battingT20:  emptyBattingStats(),
+    bowlingT20:  emptyBowlingStats(),
+    battingODI:  emptyBattingStats(),
+    bowlingODI:  emptyBowlingStats(),
+    battingTest: emptyBattingStats(),
+    bowlingTest: emptyBowlingStats(),
+  }
+}
+
+export async function recalculateAllPlayerStats(tournamentId: string): Promise<void> {
+  console.log('[recalcStats] Starting full recalculation for tournament:', tournamentId)
+
+  // ── Step 1: Fetch all players in this tournament ──────────────────────────
+  const playersSnap = await getDocs(
+    query(collection(db, PLAYERS), where('tournamentId', '==', tournamentId))
+  )
+  if (playersSnap.empty) {
+    console.log('[recalcStats] No players found for tournament — nothing to reset')
+    return
+  }
+
+  // ── Step 2: Reset all player stats to zero (batched) ──────────────────────
+  const resetBatch = writeBatch(db)
+  playersSnap.docs.forEach(d => {
+    resetBatch.update(d.ref, zeroPlayerStats())
+  })
+  await resetBatch.commit()
+  console.log('[recalcStats] Reset', playersSnap.size, 'players to zero')
+
+  // ── Step 3: Fetch all completed matches for this tournament ────────────────
+  const matchesSnap = await getDocs(
+    query(
+      collection(db, 'matches'),
+      where('tournamentId', '==', tournamentId),
+      where('status',       '==', 'completed')
+    )
+  )
+  console.log('[recalcStats] Found', matchesSnap.size, 'completed matches to replay')
+
+  // ── Step 4: Replay each match's stats ─────────────────────────────────────
+  for (const matchDoc of matchesSnap.docs) {
+    const matchData = matchDoc.data() as Record<string, unknown>
+    const matchId   = matchDoc.id
+    const format    = (matchData.format   as MatchFormat) ?? 'T20'
+    const result    = (matchData.result   as CommitMatchStatsParams['result']) ?? ''
+    const team1Id   = (matchData.team1Id  as string) ?? ''
+    const team2Id   = (matchData.team2Id  as string) ?? ''
+
+    // Clear the statsCommitted guard so commitMatchStats re-runs
+    const liveDocRef = doc(db, LIVE_STATES, matchId)
+    const liveSnap   = await getDoc(liveDocRef)
+    if (liveSnap.exists()) {
+      const clearBatch = writeBatch(db)
+      clearBatch.update(liveDocRef, { statsCommitted: false })
+      await clearBatch.commit()
+
+      // Re-commit stats for this match from ball events
+      await commitMatchStats({ matchId, format, result, team1Id, team2Id })
+    } else {
+      console.log('[recalcStats] No liveGameState for match:', matchId, '— skipping (no ball data)')
+    }
+  }
+
+  console.log('[recalcStats] Full recalculation complete for tournament:', tournamentId)
 }

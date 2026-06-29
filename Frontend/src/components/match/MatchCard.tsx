@@ -1,6 +1,7 @@
 // src/components/match/MatchCard.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Compact match card for list views — shows teams, live scores, status.
+// Supports: Edit, Delete, Clone, Abandon actions for tournament admins.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useNavigate } from 'react-router-dom'
@@ -25,16 +26,23 @@ function formatDate(iso: string): string {
 }
 
 function StatusBadge({ status }: { status: Match['status'] }) {
-  const label: Record<Match['status'], string> = {
-    live:      'Live',
-    upcoming:  'Upcoming',
-    completed: 'Completed',
-    abandoned: 'Abandoned',
+  const label: Record<string, string> = {
+    live:       'Live',
+    upcoming:   'Upcoming',
+    completed:  'Completed',
+    abandoned:  'Abandoned',
+    no_result:  'No Result',
+    cancelled:  'Cancelled',
+    rain_delay: 'Rain Delay',
+    super_over: 'Super Over',
   }
+  // Map unknown statuses to 'abandoned' CSS class for styling
+  const knownCls = ['live', 'upcoming', 'completed', 'abandoned']
+  const cls = knownCls.includes(status) ? status : 'abandoned'
   return (
-    <span className={`match-status match-status--${status}`}>
+    <span className={`match-status match-status--${cls}`}>
       <span className="match-status-dot" />
-      {label[status]}
+      {label[status] ?? status}
     </span>
   )
 }
@@ -43,20 +51,24 @@ function StatusBadge({ status }: { status: Match['status'] }) {
 
 interface MatchCardProps {
   match: Match
-  /** Called when owner clicks Edit / Delete (passed from parent) */
-  isOwner?:  boolean
-  onEdit?:   (match: Match) => void
-  onDelete?: (match: Match) => void
+  isOwner?:   boolean
+  onEdit?:    (match: Match) => void
+  onDelete?:  (match: Match) => void
+  /** Clone fixture — creates an upcoming copy of this match */
+  onClone?:   (match: Match) => void
+  /** Abandon/void a live or upcoming match */
+  onAbandon?: (match: Match) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function MatchCard({ match, isOwner, onEdit, onDelete }: MatchCardProps) {
+export function MatchCard({ match, isOwner, onEdit, onDelete, onClone, onAbandon }: MatchCardProps) {
   const navigate = useNavigate()
 
   const hasScores = match.status === 'live' || match.status === 'completed'
-  const team1Batting = match.tossWinnerId === match.team1Id && match.tossDecision === 'bat'
-    || match.tossWinnerId === match.team2Id && match.tossDecision === 'field'
+  const team1Batting =
+    (match.tossWinnerId === match.team1Id && match.tossDecision === 'bat') ||
+    (match.tossWinnerId === match.team2Id && match.tossDecision === 'field')
 
   function scoreStr(score: number, wickets: number, overs: number) {
     return `${score}/${wickets} (${overs.toFixed(1)})`
@@ -76,7 +88,7 @@ export function MatchCard({ match, isOwner, onEdit, onDelete }: MatchCardProps) 
         <StatusBadge status={match.status} />
         <span className="match-card-format">{match.format} · {match.totalOvers} ov</span>
 
-        {/* Owner quick actions */}
+        {/* Owner quick actions — stop propagation so card click doesn't fire */}
         {isOwner && (
           <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }} onClick={e => e.stopPropagation()}>
             {onEdit && (
@@ -89,6 +101,33 @@ export function MatchCard({ match, isOwner, onEdit, onDelete }: MatchCardProps) 
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+            )}
+            {onClone && (
+              <button
+                className="team-icon-btn"
+                style={{ padding: '4px 8px', fontSize: 12, color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
+                onClick={() => onClone(match)}
+                title="Clone fixture"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+            )}
+            {onAbandon && (
+              <button
+                className="team-icon-btn"
+                style={{ padding: '4px 8px', fontSize: 12, color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                onClick={() => onAbandon(match)}
+                title="Abandon match"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
               </button>
             )}
@@ -139,12 +178,16 @@ export function MatchCard({ match, isOwner, onEdit, onDelete }: MatchCardProps) 
       {match.status === 'completed' && match.resultSummary && (
         <p className="match-card-result">🏆 {match.resultSummary}</p>
       )}
+      {(match.status === 'abandoned' || match.status === 'no_result') && match.resultSummary && (
+        <p className="match-card-result" style={{ color: '#94a3b8' }}>⚠️ {match.resultSummary}</p>
+      )}
 
       {/* Footer */}
       <div className="match-card-footer">
         <span className="match-card-venue">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
           </svg>
           {match.venue || 'TBD'}
         </span>

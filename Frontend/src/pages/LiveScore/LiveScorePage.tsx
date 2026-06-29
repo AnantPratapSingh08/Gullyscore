@@ -490,19 +490,34 @@ export default function LiveScorePage() {
 
   const isOwner = !!user && !!match && user.uid === match.createdBy
 
-  // Load match + players + live state
+  // ── Subscribe to match document (real-time) ────────────────────────────────
   useEffect(() => {
     if (!matchId) return
-    const unsubMatch = subscribeToMatch(matchId, m => {
+    const unsub = subscribeToMatch(matchId, m => {
       setMatch(m)
       setLoading(false)
-      if (m) {
-        getPlayersByTeam(m.team1Id).then(setPlayers1)
-        getPlayersByTeam(m.team2Id).then(setPlayers2)
-      }
     })
-    const unsubLive  = subscribeToLiveState(matchId, setLiveState)
-    return () => { unsubMatch(); unsubLive() }
+    return unsub
+  }, [matchId])
+
+  // ── Load players when team IDs are known — separate effect to avoid leak ───
+  // Using match.team1Id/team2Id as deps instead of the full match object
+  // prevents re-fetching on every score update.
+  const team1Id = match?.team1Id
+  const team2Id = match?.team2Id
+  useEffect(() => {
+    if (!team1Id || !team2Id) return
+    let cancelled = false
+    getPlayersByTeam(team1Id).then(p => { if (!cancelled) setPlayers1(p) })
+    getPlayersByTeam(team2Id).then(p => { if (!cancelled) setPlayers2(p) })
+    return () => { cancelled = true }
+  }, [team1Id, team2Id])
+
+  // ── Subscribe to live game state ───────────────────────────────────────────
+  useEffect(() => {
+    if (!matchId) return
+    const unsub = subscribeToLiveState(matchId, setLiveState)
+    return unsub
   }, [matchId])
 
   const handleSetup = useCallback(async (striker: Player, nonStriker: Player, bowler: Player) => {
@@ -511,6 +526,7 @@ export default function LiveScorePage() {
       await startMatch(match.id)
       await initLiveGame({
         matchId: match.id,
+        tournamentId: match.tournamentId,   // required for Firestore security rules
         currentInnings: 0,
         innings1: {
           battingTeamId:   match.team1Id,
@@ -524,6 +540,9 @@ export default function LiveScorePage() {
         nonStrikerName: nonStriker.name,
         bowlerId:       bowler.id,
         bowlerName:     bowler.name,
+        // Pass playing XI if declared on the match
+        team1PlayingXI: match.team1PlayingXI ?? [],
+        team2PlayingXI: match.team2PlayingXI ?? [],
       })
       showToast('Live scoring started! 🏏', 'success')
     } catch { showToast('Failed to start.', 'error') }

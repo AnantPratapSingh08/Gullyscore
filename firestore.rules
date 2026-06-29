@@ -218,7 +218,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && isTournamentAdmin(request.resource.data.tournamentId);
     }
 
     // ── Points Table collection ──────────────────────────────────────────────
@@ -227,7 +227,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && isTournamentAdmin(request.resource.data.tournamentId);
     }
 
     // ── Player Stats collection ──────────────────────────────────────────────
@@ -236,7 +236,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && isTournamentAdmin(request.resource.data.tournamentId);
     }
 
     // ── Team Stats collection ────────────────────────────────────────────────
@@ -245,7 +245,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && isTournamentAdmin(request.resource.data.tournamentId);
     }
 
     // ── Notifications collection ─────────────────────────────────────────────
@@ -266,7 +266,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && isTournamentAdmin(request.resource.data.tournamentId);
     }
 
     // ── Deny everything else ─────────────────────────────────────────────────

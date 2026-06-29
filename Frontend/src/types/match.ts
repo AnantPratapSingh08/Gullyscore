@@ -11,7 +11,11 @@ export type MatchStatus =
   | 'upcoming'    // Scheduled, not started
   | 'live'        // In progress
   | 'completed'   // Finished, result declared
-  | 'abandoned'   // Cancelled / no result
+  | 'abandoned'   // Cancelled before play started
+  | 'no_result'   // Rain/DLS — match started but no result
+  | 'cancelled'   // Removed from fixture list
+  | 'rain_delay'  // Temporary suspension, resumes later
+  | 'super_over'  // Tied — super over in progress
 
 export type MatchFormat =
   | 'T20'
@@ -127,6 +131,12 @@ export interface Match {
   innings1?: Innings
   innings2?: Innings
 
+  // ── Playing XI ────────────────────────────────────────────────────────────
+  /** Player IDs declared in team1's Playing XI (up to 11) */
+  team1PlayingXI?: string[]
+  /** Player IDs declared in team2's Playing XI (up to 11) */
+  team2PlayingXI?: string[]
+
   // ── Tournament linkage ────────────────────────────────────────────────────
 
   /** Tournament this match belongs to (empty string if standalone) */
@@ -157,10 +167,13 @@ export type MatchUpdatePayload = Partial<
   Pick<Match,
     | 'title' | 'format' | 'totalOvers' | 'venue' | 'scheduledAt'
     | 'status'
+    | 'team1Id' | 'team1Name' | 'team1Logo'
+    | 'team2Id' | 'team2Name' | 'team2Logo'
     | 'tossWinnerId' | 'tossDecision'
     | 'team1Score' | 'team1Wickets' | 'team1Overs'
     | 'team2Score' | 'team2Wickets' | 'team2Overs'
-    | 'result' | 'resultSummary'
+    | 'result' | 'resultSummary' | 'playerOfMatch'
     | 'innings1' | 'innings2'
+    | 'team1PlayingXI' | 'team2PlayingXI'
   >
 >

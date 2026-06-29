@@ -8,13 +8,21 @@ import type { Timestamp } from 'firebase/firestore'
 export interface Team {
   id: string
   teamName: string
-  logo: string          // emoji or URL
-  captain: string       // display name
+  logo: string          // emoji
+  logoUrl?: string      // Firebase Storage URL (optional, overrides emoji)
+  captain: string       // display name (legacy)
+  captainId?: string    // player ID of captain
+  viceCaptainId?: string
+  coachName?: string
+  managerName?: string
+  bio?: string
   createdBy: string     // uid
   inviteCode: string
   createdAt: Timestamp | null
   playerCount: number
   tournamentId?: string
+  /** Player IDs declared in the Playing XI for this team */
+  playingXI?: string[]
 }
 
 export interface Player {
@@ -25,6 +33,10 @@ export interface Player {
   tournamentId?: string
   addedBy: string       // uid
   joinedAt: Timestamp | null
+  jerseyNumber?: number
+  battingStyle?: 'Right-Handed' | 'Left-Handed'
+  bowlingStyle?: string
+  avatarUrl?: string    // Firebase Storage URL for player photo
   stats: {
     matches: number
     runs: number

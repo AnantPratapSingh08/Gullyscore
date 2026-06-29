@@ -81,12 +81,15 @@ function emptyInnings(
 export async function initLiveGame(payload: LiveGameInitPayload): Promise<void> {
   console.log('[liveScore] initLiveGame →', payload)
   const {
-    matchId, innings1,
+    matchId, innings1, tournamentId,
     strikerId, strikerName, nonStrikerId, nonStrikerName, bowlerId, bowlerName,
+    team1PlayingXI, team2PlayingXI,
   } = payload
   const docRef = doc(db, LIVE_STATES, matchId)
   await setDoc(docRef, {
-    matchId, currentInnings: 0,
+    matchId,
+    tournamentId: tournamentId || '',   // persisted so Firestore rules can check it
+    currentInnings: 0,
     innings1: emptyInnings(
       innings1.battingTeamId, innings1.battingTeamName,
       innings1.bowlingTeamId, innings1.bowlingTeamName,
@@ -101,7 +104,12 @@ export async function initLiveGame(payload: LiveGameInitPayload): Promise<void> 
     innings1InitNonStrikerName: nonStrikerName,
     innings1InitBowlerId: bowlerId,
     innings1InitBowlerName: bowlerName,
-    isActive: true, lastUpdated: serverTimestamp(),
+    // Playing XI — used by scoring pad to filter available players
+    team1PlayingXI: team1PlayingXI ?? [],
+    team2PlayingXI: team2PlayingXI ?? [],
+    statsCommitted: false,
+    isActive: true,
+    lastUpdated: serverTimestamp(),
   })
   console.log('[liveScore] initLiveGame ✓ docId:', matchId)
 }

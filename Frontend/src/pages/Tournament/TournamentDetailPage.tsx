@@ -11,7 +11,7 @@ import { AppShell } from '../../components/team/AppShell'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeToTournament, setTournamentStatus } from '../../services/tournamentService'
-import { subscribeToAllMatches } from '../../services/matchService'
+import { subscribeToMatchesByTournament } from '../../services/matchService'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { useRole } from '../../context/RoleContext'
 import type { Tournament, PointsTableEntry } from '../../types/tournament'
@@ -162,17 +162,16 @@ function AwardsSection({ tournament }: { tournament: Tournament }) {
 
 // ── Match Fixtures ─────────────────────────────────────────────────────────────
 
-function FixturesList({ matches, tournamentId }: { matches: Match[]; tournamentId: string }) {
+function FixturesList({ matches }: { matches: Match[] }) {
   const navigate = useNavigate()
-  const tournamentMatches = matches.filter(m => m.tournamentId === tournamentId)
 
-  if (tournamentMatches.length === 0) {
+  if (matches.length === 0) {
     return <p style={{ color: '#64748b', textAlign: 'center', padding: '24px 0' }}>No fixtures scheduled yet.</p>
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {tournamentMatches.map(m => (
+      {matches.map(m => (
         <div
           key={m.id}
           onClick={() => navigate(`/matches/${m.id}`)}
@@ -250,11 +249,12 @@ export default function TournamentDetailPage() {
     return unsub
   }, [tournamentId, user?.uid, joinedIds])
 
-  // Subscribe to all matches (filter by tournamentId in render)
+  // Subscribe to tournament-scoped matches only (prevents cross-tournament leakage)
   useEffect(() => {
-    const unsub = subscribeToAllMatches(setMatches)
+    if (!tournamentId) return
+    const unsub = subscribeToMatchesByTournament(tournamentId, setMatches)
     return unsub
-  }, [])
+  }, [tournamentId])
 
   const isAdmin = canManageTournament || (!!user && !!tournament && user.uid === tournament.adminId)
 
@@ -422,7 +422,7 @@ export default function TournamentDetailPage() {
           </div>
         )}
 
-        {tab === 'fixtures' && <FixturesList matches={matches} tournamentId={tournament.id} />}
+        {tab === 'fixtures' && <FixturesList matches={matches} />}
         {tab === 'points' && <PointsTable table={tournament.pointsTable} />}
         {tab === 'awards' && <AwardsSection tournament={tournament} />}
       </div>

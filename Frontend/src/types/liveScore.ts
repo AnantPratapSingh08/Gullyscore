@@ -229,12 +229,25 @@ export interface LiveGameState {
   innings2InitNonStrikerName?: string
   innings2InitBowlerId?: string
   innings2InitBowlerName?: string
+
+  // ── Playing XI ──────────────────────────────────────────────────────────
+  /** Player IDs in Playing XI for team1 (batting first in innings 1) */
+  team1PlayingXI?: string[]
+  /** Player IDs in Playing XI for team2 (batting first in innings 2) */
+  team2PlayingXI?: string[]
+
+  /** Tournament ID — required for Firestore security rules */
+  tournamentId?: string
+
+  /** True once career stats have been committed for this match */
+  statsCommitted?: boolean
 }
 
 // ── Write payload for initialising a live game ────────────────────────────────
 
 export type LiveGameInitPayload = {
   matchId:          string
+  tournamentId:     string   // required for Firestore security rules
   currentInnings:   0
   innings1: Pick<LiveInningsState,
     | 'battingTeamId' | 'battingTeamName'
@@ -246,6 +259,9 @@ export type LiveGameInitPayload = {
   nonStrikerName:   string
   bowlerId:         string
   bowlerName:       string
+  /** Player IDs selected for Playing XI — team1 batting first */
+  team1PlayingXI?:  string[]
+  team2PlayingXI?:  string[]
 }
 
 // ── Player option (for striker/bowler selectors) ──────────────────────────────

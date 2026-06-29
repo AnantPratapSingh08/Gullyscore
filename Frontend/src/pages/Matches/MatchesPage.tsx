@@ -14,7 +14,7 @@ import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { useRole } from '../../context/RoleContext'
-import { createMatch, updateMatch, deleteMatch, subscribeToMatchesByTournament } from '../../services/matchService'
+import { createMatch, updateMatch, deleteMatch, cloneMatch, abandonMatch, subscribeToMatchesByTournament } from '../../services/matchService'
 import { subscribeToTeamsByTournament } from '../../services/teamService'
 import type { Match, MatchStatus } from '../../types/match'
 import type { Team } from '../../types/team'
@@ -29,6 +29,7 @@ const TABS: Array<{ label: string; value: MatchStatus | 'all'; icon: string }> =
   { label: 'Live',      value: 'live',      icon: '🔴' },
   { label: 'Upcoming',  value: 'upcoming',  icon: '📅' },
   { label: 'Completed', value: 'completed', icon: '✅' },
+  { label: 'Abandoned', value: 'abandoned', icon: '❌' },
 ]
 
 // ── Hook: fetch tournament-scoped matches + teams ─────────────────────────────
@@ -94,6 +95,7 @@ export default function MatchesPage() {
     live:      matches.filter(m => m.status === 'live').length,
     upcoming:  matches.filter(m => m.status === 'upcoming').length,
     completed: matches.filter(m => m.status === 'completed').length,
+    abandoned: matches.filter(m => m.status === 'abandoned' || m.status === 'no_result' || m.status === 'cancelled').length,
   }), [matches])
 
 
@@ -136,6 +138,28 @@ export default function MatchesPage() {
       showToast('Failed to delete match.', 'error')
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  // ── Clone ───────────────────────────────────────────────────────────────
+  async function handleClone(match: Match) {
+    try {
+      const newId = await cloneMatch(match.id)
+      showToast(`Cloned "${match.title}" — new fixture ready! 📋`, 'success')
+      setTimeout(() => navigate(`/matches/${newId}`), 800)
+    } catch {
+      showToast('Failed to clone match.', 'error')
+    }
+  }
+
+  // ── Abandon ─────────────────────────────────────────────────────────────
+  async function handleAbandon(match: Match) {
+    if (!window.confirm(`Abandon "${match.title}"? This will void the result.`)) return
+    try {
+      await abandonMatch(match.id)
+      showToast('Match abandoned.', 'info')
+    } catch {
+      showToast('Failed to abandon match.', 'error')
     }
   }
 
@@ -275,6 +299,8 @@ export default function MatchesPage() {
                   isOwner={canManageMatches}
                   onEdit={setEditingMatch}
                   onDelete={setDeletingMatch}
+                  onClone={canManageMatches ? handleClone : undefined}
+                  onAbandon={canManageMatches && (m.status === 'live' || m.status === 'upcoming') ? handleAbandon : undefined}
                 />
               ))}
             </div>

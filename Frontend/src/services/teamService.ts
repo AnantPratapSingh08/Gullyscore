@@ -34,14 +34,21 @@ export function generateInviteCode(): string {
 function docToTeam(id: string, data: Record<string, unknown>): Team {
   return {
     id,
-    teamName: (data.teamName as string) ?? '',
-    logo: (data.logo as string) ?? '🏏',
-    captain: (data.captain as string) ?? '',
-    createdBy: (data.createdBy as string) ?? '',
-    inviteCode: (data.inviteCode as string) ?? '',
-    createdAt: (data.createdAt as Team['createdAt']) ?? null,
-    playerCount: (data.playerCount as number) ?? 0,
-    tournamentId: (data.tournamentId as string) ?? '',
+    teamName:       (data.teamName      as string) ?? '',
+    logo:           (data.logo          as string) ?? '🏏',
+    logoUrl:        (data.logoUrl       as string) ?? undefined,
+    captain:        (data.captain       as string) ?? '',
+    captainId:      (data.captainId     as string) ?? undefined,
+    viceCaptainId:  (data.viceCaptainId as string) ?? undefined,
+    coachName:      (data.coachName     as string) ?? undefined,
+    managerName:    (data.managerName   as string) ?? undefined,
+    bio:            (data.bio           as string) ?? undefined,
+    createdBy:      (data.createdBy     as string) ?? '',
+    inviteCode:     (data.inviteCode    as string) ?? '',
+    createdAt:      (data.createdAt     as Team['createdAt']) ?? null,
+    playerCount:    (data.playerCount   as number) ?? 0,
+    tournamentId:   (data.tournamentId  as string) ?? '',
+    playingXI:      (data.playingXI     as string[]) ?? [],
   }
 }
 
@@ -49,13 +56,17 @@ function docToTeam(id: string, data: Record<string, unknown>): Team {
 function docToPlayer(id: string, data: Record<string, unknown>): Player {
   return {
     id,
-    name: (data.name as string) ?? '',
-    role: (data.role as Player['role']) ?? 'Batsman',
-    teamId: (data.teamId as string) ?? '',
+    name:         (data.name         as string) ?? '',
+    role:         (data.role         as Player['role']) ?? 'Batsman',
+    teamId:       (data.teamId       as string) ?? '',
     tournamentId: (data.tournamentId as string) ?? '',
-    addedBy: (data.addedBy as string) ?? '',
-    joinedAt: (data.joinedAt as Player['joinedAt']) ?? null,
-    stats: (data.stats as Player['stats']) ?? { matches: 0, runs: 0, wickets: 0, catches: 0 },
+    addedBy:      (data.addedBy      as string) ?? '',
+    joinedAt:     (data.joinedAt     as Player['joinedAt']) ?? null,
+    jerseyNumber: (data.jerseyNumber as number) ?? undefined,
+    battingStyle: (data.battingStyle as Player['battingStyle']) ?? undefined,
+    bowlingStyle: (data.bowlingStyle as string) ?? undefined,
+    avatarUrl:    (data.avatarUrl    as string) ?? undefined,
+    stats:        (data.stats        as Player['stats']) ?? { matches: 0, runs: 0, wickets: 0, catches: 0 },
   }
 }
 
@@ -136,23 +147,22 @@ export function subscribeToAllTeams(
 
 /**
  * Subscribe to teams belonging to a specific tournament (real-time).
- * Uses the tournament's teamIds array to filter. Empty tournamentId → empty list.
+ * Uses server-side query on tournamentId field — efficient and secure.
+ * Falls back to empty list when tournamentId is missing.
  */
 export function subscribeToTeamsByTournament(
   tournamentId: string,
-  tournamentTeamIds: string[],
+  _tournamentTeamIds: string[],  // kept for API compat; server query is preferred
   callback: (teams: Team[]) => void
 ): Unsubscribe {
-  if (!tournamentId || tournamentTeamIds.length === 0) {
+  if (!tournamentId) {
     callback([])
     return () => {}
   }
-  // Subscribe to all teams but filter client-side by the tournament's teamIds.
-  // Firestore 'in' queries are limited to 30 items; client filter scales better.
-  return onSnapshot(collection(db, 'teams'), snap => {
-    const teams = snap.docs
-      .filter(d => tournamentTeamIds.includes(d.id))
-      .map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
+  // Server-side filter: only returns teams for this tournament
+  const q = query(collection(db, 'teams'), where('tournamentId', '==', tournamentId))
+  return onSnapshot(q, snap => {
+    const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
     callback(teams)
   })
 }
@@ -237,6 +247,44 @@ export async function getTeamPlayers(teamId: string): Promise<Player[]> {
   const q = query(collection(db, 'players'), where('teamId', '==', teamId))
   const snap = await getDocs(q)
   return snap.docs.map(d => docToPlayer(d.id, d.data() as Record<string, unknown>))
+}
+
+// ── Playing XI Management ─────────────────────────────────────────────────────
+
+/**
+ * Save the Playing XI for a team.
+ * Stores up to 11 player IDs in teams/{teamId}.playingXI.
+ */
+export async function setTeamPlayingXI(teamId: string, playerIds: string[]): Promise<void> {
+  if (playerIds.length > 11) throw new Error('Playing XI cannot have more than 11 players')
+  await updateDoc(doc(db, 'teams', teamId), { playingXI: playerIds })
+}
+
+/**
+ * Set the captain and vice-captain for a team.
+ * Updates both the legacy 'captain' string field and the new 'captainId' field.
+ */
+export async function setTeamCaptain(
+  teamId: string,
+  captainId: string,
+  captainName: string,
+  viceCaptainId?: string,
+): Promise<void> {
+  await updateDoc(doc(db, 'teams', teamId), {
+    captainId,
+    captain: captainName,
+    ...(viceCaptainId ? { viceCaptainId } : {}),
+  })
+}
+
+/**
+ * Update player profile fields (jersey number, batting/bowling style, avatar).
+ */
+export async function updatePlayerProfile(
+  playerId: string,
+  updates: Partial<Pick<Player, 'jerseyNumber' | 'battingStyle' | 'bowlingStyle' | 'avatarUrl' | 'name' | 'role'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'players', playerId), updates as Record<string, unknown>)
 }
 
 // ── User team membership ──────────────────────────────────────────────────────
