@@ -421,3 +421,218 @@
   .match-detail-scoreboard { grid-template-columns: 1fr; gap: 12px; }
   .match-detail-team--right { align-items: flex-start; text-align: left; }
 }
+
+/* ── Premium Scorecard Styles ───────────────────────────────────────────── */
+
+.scorecard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.scorecard-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #22d3ee;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scorecard-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.scorecard-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.scorecard-table th {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 16px;
+  font-weight: 700;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scorecard-table td {
+  padding: 12px 16px;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.scorecard-table tr:last-child td {
+  border-bottom: none;
+}
+
+.scorecard-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.scorecard-extras-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.scorecard-fow {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+/* ── Match Timeline ──────────────────────────────────────────────────────── */
+
+.timeline-over-group {
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.timeline-over-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #22d3ee;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.timeline-balls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-ball-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.timeline-ball-index {
+  font-family: monospace;
+  font-weight: 700;
+  color: #94a3b8;
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.timeline-ball-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  color: #0f172a;
+}
+
+.timeline-ball-badge--dot { background: #64748b; color: #fff; }
+.timeline-ball-badge--runs { background: #e2e8f0; }
+.timeline-ball-badge--boundary { background: #facc15; }
+.timeline-ball-badge--six { background: #a855f7; color: #fff; }
+.timeline-ball-badge--wicket { background: #f87171; color: #fff; }
+.timeline-ball-badge--extra { background: #38bdf8; }
+
+.timeline-ball-desc {
+  flex: 1;
+  color: #cbd5e1;
+}
+
+.timeline-ball-bowler {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* ── Share Component ─────────────────────────────────────────────────────── */
+
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+}
+
+.share-url-container {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.share-url-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #cbd5e1;
+  font-family: monospace;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── Match Summary Display ───────────────────────────────────────────────── */
+.match-summary-card {
+  background: rgba(34, 211, 238, 0.03);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.match-summary-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #22d3ee;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.match-summary-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  margin: 0;
+  white-space: pre-line;
+}

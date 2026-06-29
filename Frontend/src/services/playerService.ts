@@ -37,6 +37,7 @@ function docToPlayer(id: string, data: Record<string, unknown>): Player {
     bio:          (data.bio          as string) ?? '',
     avatarUrl:    (data.avatarUrl    as string) ?? '',
     teamId:       (data.teamId       as string) ?? '',
+    tournamentId: (data.tournamentId as string) ?? '',
     jerseyNumber: (data.jerseyNumber as number) ?? 0,
     role:         (data.role         as Player['role'])          ?? 'Batsman',
     battingStyle: (data.battingStyle as Player['battingStyle']) ?? 'Right-Handed',
@@ -104,6 +105,20 @@ export async function createPlayer(
  */
 export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
   const q = query(collection(db, PLAYERS), where('teamId', '==', teamId))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => docToPlayer(d.id, d.data() as Record<string, unknown>))
+}
+
+/**
+ * Fetch all players belonging to a specific tournament (one-time read).
+ * Requires each player document to have a `tournamentId` field.
+ *
+ * @param tournamentId  The tournament ID.
+ * @returns             Array of Player objects (empty if none or no tournamentId field).
+ */
+export async function getPlayersByTournament(tournamentId: string): Promise<Player[]> {
+  if (!tournamentId) return []
+  const q = query(collection(db, PLAYERS), where('tournamentId', '==', tournamentId))
   const snap = await getDocs(q)
   return snap.docs.map(d => docToPlayer(d.id, d.data() as Record<string, unknown>))
 }

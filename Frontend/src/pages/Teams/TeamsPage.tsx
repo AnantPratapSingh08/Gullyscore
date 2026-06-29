@@ -1,6 +1,6 @@
 // src/pages/Teams/TeamsPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Browse ALL Teams page — real-time, searchable, with Join by Invite Code
+// Browse Teams page — tournament-isolated, real-time, searchable
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
@@ -8,34 +8,35 @@ import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/team/AppShell'
 import { TeamCard } from '../../components/team/TeamCard'
 import { useToast, ToastContainer } from '../../components/common/Toast'
-import { useAllTeams } from '../../hooks/useTeams'
+import { useTournamentTeams } from '../../hooks/useTeams'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import { findTeamByInviteCode, joinTeam } from '../../services/teamService'
+import { useRole } from '../../context/RoleContext'
 import '../../styles/teams.css'
 
 export default function TeamsPage() {
-  const { teams, loading } = useAllTeams()
   const { user } = useAuth()
-  const { activeTournament } = useActiveTournament()
+  const { activeTournament, activeTournamentId } = useActiveTournament()
+  const { canManageTeams } = useRole()
   const navigate = useNavigate()
   const { toasts, showToast, dismissToast } = useToast()
+
+  // Only fetch teams belonging to the active tournament
+  const tournamentTeamIds = activeTournament?.teamIds ?? []
+  const { teams, loading } = useTournamentTeams(activeTournamentId, tournamentTeamIds)
 
   const [search, setSearch]             = useState('')
   const [inviteCode, setInviteCode]     = useState('')
   const [joiningCode, setJoiningCode]   = useState(false)
   const [showJoinPanel, setShowJoinPanel] = useState(false)
 
-  // Filter to active tournament teams only
-  const tournamentTeams = activeTournament?.teamIds?.length
-    ? teams.filter(t => activeTournament.teamIds.includes(t.id))
-    : teams
-
   // ── Search filter ────────────────────────────────────────────────────────
-  const filtered = tournamentTeams.filter(t =>
+  const filtered = teams.filter(t =>
     t.teamName.toLowerCase().includes(search.toLowerCase()) ||
     t.captain.toLowerCase().includes(search.toLowerCase())
   )
+
 
   // ── Join by Invite Code ───────────────────────────────────────────────────
   async function handleJoin() {
@@ -91,16 +92,18 @@ export default function TeamsPage() {
               </svg>
               Join with Code
             </button>
-            <button
-              id="create-team-btn"
-              className="team-btn team-btn--primary"
-              onClick={() => navigate('/teams/create')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Create Team
-            </button>
+            {canManageTeams && (
+              <button
+                id="create-team-btn"
+                className="team-btn team-btn--primary"
+                onClick={() => navigate('/teams/create')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Create Team
+              </button>
+            )}
           </div>
         </div>
 
@@ -171,7 +174,7 @@ export default function TeamsPage() {
                 ? `Try a different name or captain.`
                 : 'Be the first to create a team and start your gully cricket journey!'}
             </p>
-            {!search && (
+            {!search && canManageTeams && (
               <button
                 className="team-btn team-btn--primary"
                 onClick={() => navigate('/teams/create')}

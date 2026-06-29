@@ -11,8 +11,9 @@ import { AppShell } from '../../components/team/AppShell'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeToTournament, setTournamentStatus } from '../../services/tournamentService'
-import { getTournamentByCode } from '../../services/tournamentService'
 import { subscribeToAllMatches } from '../../services/matchService'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
+import { useRole } from '../../context/RoleContext'
 import type { Tournament, PointsTableEntry } from '../../types/tournament'
 import type { Match } from '../../types/match'
 import '../../styles/teams.css'
@@ -36,12 +37,12 @@ function CodeGate({ tournamentId, onAccess }: { tournamentId: string; onAccess: 
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { joinByCode } = useActiveTournament()
 
   async function handleJoin() {
     if (code.trim().length !== 6) { setError('Code must be 6 characters.'); return }
-    const t = await getTournamentByCode(code.trim())
-    if (!t) { setError('Invalid code. Please check and try again.'); return }
-    if (t.id !== tournamentId) { setError('This code is for a different tournament.'); return }
+    const res = await joinByCode(code.trim())
+    if (!res.ok) { setError(res.error || 'Failed to join tournament.'); return }
     grantAccess(tournamentId, code.trim())
     onAccess()
   }
@@ -222,6 +223,8 @@ export default function TournamentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [accessGranted, setAccessGranted] = useState(false)
+  const { joinedIds } = useActiveTournament()
+  const { canManageTournament } = useRole()
 
   // Check access on mount
   useEffect(() => {
@@ -239,13 +242,13 @@ export default function TournamentDetailPage() {
         // Owner always has access; others need code
         if (user?.uid === t.adminId) {
           setAccessGranted(true)
-        } else if (hasAccess(tournamentId, t.tournamentCode)) {
+        } else if (hasAccess(tournamentId, t.tournamentCode) || joinedIds.includes(tournamentId)) {
           setAccessGranted(true)
         }
       }
     })
     return unsub
-  }, [tournamentId, user?.uid])
+  }, [tournamentId, user?.uid, joinedIds])
 
   // Subscribe to all matches (filter by tournamentId in render)
   useEffect(() => {
@@ -253,15 +256,15 @@ export default function TournamentDetailPage() {
     return unsub
   }, [])
 
-  const isOwner = !!user && !!tournament && user.uid === tournament.adminId
+  const isAdmin = canManageTournament || (!!user && !!tournament && user.uid === tournament.adminId)
 
   const handleStatusChange = useCallback(async (status: Tournament['status']) => {
-    if (!tournament || !isOwner) return
+    if (!tournament || !isAdmin) return
     try {
       await setTournamentStatus(tournament.id, status)
       showToast(`Tournament ${status}!`, 'success')
     } catch { showToast('Failed to update status.', 'error') }
-  }, [tournament, isOwner, showToast])
+  }, [tournament, isAdmin, showToast])
 
   if (loading) {
     return (
@@ -339,8 +342,8 @@ export default function TournamentDetailPage() {
                 <span style={{ color: '#94a3b8', fontSize: 13 }}>👥 {tournament.teamIds.length}/{tournament.maxTeams} teams</span>
               </div>
             </div>
-            {/* Code display (owner only) */}
-            {isOwner && (
+            {/* Code display (admin only) */}
+            {isAdmin && (
               <div style={{
                 background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)',
                 borderRadius: 14, padding: '12px 20px', textAlign: 'center', minWidth: 160,
@@ -354,8 +357,8 @@ export default function TournamentDetailPage() {
             )}
           </div>
 
-          {/* Owner controls */}
-          {isOwner && (
+          {/* Admin controls */}
+          {isAdmin && (
             <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {tournament.status === 'draft' && (
                 <button className="team-btn team-btn--primary team-btn--sm" onClick={() => handleStatusChange('registration')}>

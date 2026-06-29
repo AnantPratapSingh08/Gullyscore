@@ -6,10 +6,11 @@ import { useAuth } from '../../context/AuthContext'
  * Wraps protected routes.
  * - While Firebase is resolving auth state → show full-screen spinner
  * - No user → redirect to /login
- * - Authenticated → render the child route via <Outlet />
+ * - User not email-verified → redirect to /verify-email
+ * - Authenticated & verified → render the child route via <Outlet />
  */
 export function ProtectedRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, emailVerified } = useAuth()
 
   if (loading) {
     return (
@@ -20,7 +21,9 @@ export function ProtectedRoute() {
     )
   }
 
-  return user ? <Outlet /> : <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
+  if (!emailVerified) return <Navigate to="/verify-email" replace />
+  return <Outlet />
 }
 
 export default ProtectedRoute

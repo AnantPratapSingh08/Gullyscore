@@ -41,6 +41,7 @@ function docToTeam(id: string, data: Record<string, unknown>): Team {
     inviteCode: (data.inviteCode as string) ?? '',
     createdAt: (data.createdAt as Team['createdAt']) ?? null,
     playerCount: (data.playerCount as number) ?? 0,
+    tournamentId: (data.tournamentId as string) ?? '',
   }
 }
 
@@ -51,6 +52,7 @@ function docToPlayer(id: string, data: Record<string, unknown>): Player {
     name: (data.name as string) ?? '',
     role: (data.role as Player['role']) ?? 'Batsman',
     teamId: (data.teamId as string) ?? '',
+    tournamentId: (data.tournamentId as string) ?? '',
     addedBy: (data.addedBy as string) ?? '',
     joinedAt: (data.joinedAt as Player['joinedAt']) ?? null,
     stats: (data.stats as Player['stats']) ?? { matches: 0, runs: 0, wickets: 0, catches: 0 },
@@ -132,6 +134,29 @@ export function subscribeToAllTeams(
   })
 }
 
+/**
+ * Subscribe to teams belonging to a specific tournament (real-time).
+ * Uses the tournament's teamIds array to filter. Empty tournamentId → empty list.
+ */
+export function subscribeToTeamsByTournament(
+  tournamentId: string,
+  tournamentTeamIds: string[],
+  callback: (teams: Team[]) => void
+): Unsubscribe {
+  if (!tournamentId || tournamentTeamIds.length === 0) {
+    callback([])
+    return () => {}
+  }
+  // Subscribe to all teams but filter client-side by the tournament's teamIds.
+  // Firestore 'in' queries are limited to 30 items; client filter scales better.
+  return onSnapshot(collection(db, 'teams'), snap => {
+    const teams = snap.docs
+      .filter(d => tournamentTeamIds.includes(d.id))
+      .map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
+    callback(teams)
+  })
+}
+
 /** Subscribe to MY teams (real-time) */
 export function subscribeToMyTeams(
   uid: string,
@@ -185,9 +210,14 @@ export async function addPlayer(
   teamId: string,
   playerData: { name: string; role: Player['role']; addedBy: string }
 ): Promise<string> {
+  const teamSnap = await getDoc(doc(db, 'teams', teamId))
+  const teamData = teamSnap.exists() ? teamSnap.data() : null
+  const tournamentId = teamData?.tournamentId ?? ''
+
   const ref = await addDoc(collection(db, 'players'), {
     ...playerData,
     teamId,
+    tournamentId,
     joinedAt: serverTimestamp(),
     stats: { matches: 0, runs: 0, wickets: 0, catches: 0 },
   })

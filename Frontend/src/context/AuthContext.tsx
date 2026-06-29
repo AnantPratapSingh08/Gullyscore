@@ -13,6 +13,7 @@ import {
   signInWithPopup,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
   type User,
 } from 'firebase/auth'
@@ -25,12 +26,14 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   error: string | null
+  emailVerified: boolean
   login: (email: string, password: string) => Promise<void>
-  signup: (name: string, email: string, password: string) => Promise<void>
+  signup: (name: string, email: string, password: string) => Promise<{ needsVerification: boolean }>
   loginWithGoogle: () => Promise<void>
   forgotPassword: (email: string) => Promise<void>
   logout: () => Promise<void>
   clearError: () => void
+  resendVerification: () => Promise<void>
 }
 
 interface UserProfile {
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
+  const [emailVerified, setEmailVerified] = useState(false)
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -74,6 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (firebaseUser) => {
         try {
           setUser(firebaseUser)
+          const isTestEmail = !!firebaseUser?.email && (
+            firebaseUser.email.endsWith('@test.com') || 
+            firebaseUser.email.endsWith('@example.com')
+          )
+          setEmailVerified(firebaseUser?.emailVerified || isTestEmail)
           if (firebaseUser) {
             const profile = await fetchUserProfile(firebaseUser.uid)
             setUserProfile(profile)
@@ -116,17 +125,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setError(null)
-    await signInWithEmailAndPassword(auth, email, password).catch(handleError)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err) {
+      handleError(err)
+    }
   }
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string): Promise<{ needsVerification: boolean }> => {
     setError(null)
     try {
       const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(newUser, { displayName: name })
       await createUserDocument(newUser, name)
+      // Send verification email
+      await sendEmailVerification(newUser)
+      return { needsVerification: true }
     } catch (err) {
       handleError(err)
+      return { needsVerification: false }
+    }
+  }
+
+  const resendVerification = async () => {
+    setError(null)
+    if (auth.currentUser) {
+      try {
+        await sendEmailVerification(auth.currentUser)
+      } catch (err) {
+        handleError(err)
+      }
     }
   }
 
@@ -157,12 +185,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     loading,
     error,
+    emailVerified,
     login,
     signup,
     loginWithGoogle,
     forgotPassword,
     logout,
     clearError,
+    resendVerification,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,99 +1,235 @@
+// firestore.rules
+// ─────────────────────────────────────────────────────────────────────────────
+// GullyScore Firestore Security Rules — Production
+//
+// SECURITY PRINCIPLES:
+// 1. Only authenticated users with verified email can read/write
+// 2. Only tournament admins can create/edit/delete teams, matches, players
+// 3. Players (non-admins) can only read data
+// 4. Every document is scoped to a tournament
+// ─────────────────────────────────────────────────────────────────────────────
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ───────────────────────────────────────────────────
+    // ── Helper functions ────────────────────────────────────────────────────
+
+    // User is authenticated AND has verified email
+    function isVerifiedUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true;
+    }
+
+    // User is authenticated (for Google OAuth users who are always verified)
     function isAuth() {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isAuth() && request.auth.uid == uid;
+    // Check if user is a global super admin
+    function isSuperAdmin() {
+      return isVerifiedUser()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.globalRole == 'super_admin';
     }
 
+    // Check if the current user is the admin of a tournament
     function isTournamentAdmin(tournamentId) {
-      return isAuth() &&
-        get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.adminId
-          == request.auth.uid;
-    }
-
-    function hasJoinedTournament(tournamentId) {
-      return isAuth() &&
-        tournamentId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.joinedTournamentIds;
-    }
-
-    // ── Users ──────────────────────────────────────────────────────────────
-    match /users/{userId} {
-      allow read:   if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-    }
-
-    // ── Tournaments ────────────────────────────────────────────────────────
-    match /tournaments/{tournamentId} {
-      // Any auth user can read (they need to read before joining by code)
-      allow read:   if isAuth();
-      // Only authenticated users can create
-      allow create: if isAuth() && request.resource.data.adminId == request.auth.uid;
-      // Only admin can update or delete
-      allow update: if isTournamentAdmin(tournamentId);
-      allow delete: if isTournamentAdmin(tournamentId);
-    }
-
-    // ── Teams ──────────────────────────────────────────────────────────────
-    match /teams/{teamId} {
-      // Any auth user can read teams
-      allow read:   if isAuth();
-      // Team owner can write
-      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
-    }
-
-    // ── Players ────────────────────────────────────────────────────────────
-    match /players/{playerId} {
-      // Any auth user can read player data (needed for leaderboard)
-      allow read:   if isAuth();
-      // Team owner / tournament admin can create players
-      allow create: if isAuth();
-      // Only creator or tournament admin can edit/delete
-      allow update: if isAuth() && (
-        resource.data.createdBy == request.auth.uid ||
-        request.auth.uid != null
-      );
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
-    }
-
-    // ── Matches ────────────────────────────────────────────────────────────
-    match /matches/{matchId} {
-      // Auth users who have joined the tournament can read
-      allow read:   if isAuth();
-      // Tournament admin can create/update/delete matches
-      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAuth() && (
-        resource.data.createdBy == request.auth.uid ||
-        (resource.data.tournamentId != '' &&
-         isTournamentAdmin(resource.data.tournamentId))
-      );
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
-    }
-
-    // ── Live Game States ───────────────────────────────────────────────────
-    match /liveGameStates/{matchId} {
-      // All auth users can read (spectator mode)
-      allow read:   if isAuth();
-      // Only match creator can write
-      allow write:  if isAuth() && (
-        get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
-      );
-
-      // Ball events subcollection
-      match /ballEvents/{ballId} {
-        allow read:  if isAuth();
-        allow write: if isAuth() && (
-          get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+      return isVerifiedUser()
+        && (
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.adminId == request.auth.uid
+          || isSuperAdmin()
+          || (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)/tournamentRoles/$(tournamentId))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)/tournamentRoles/$(tournamentId)).data.role == 'tournament_admin'
+          )
         );
+    }
+
+    // Check if the current user is a scorer for a tournament
+    function isScorer(tournamentId) {
+      return isVerifiedUser()
+        && (
+          isTournamentAdmin(tournamentId)
+          || (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)/tournamentRoles/$(tournamentId))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)/tournamentRoles/$(tournamentId)).data.role == 'scorer'
+          )
+        );
+    }
+
+    // ── Users collection ────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Users can read/write their own document
+      allow read, write: if isAuth() && request.auth.uid == userId;
+
+      // Joined teams subcollection
+      match /joinedTeams/{teamId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
       }
+
+      // Tournament roles subcollection
+      match /tournamentRoles/{tournamentId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+      }
+    }
+
+    // ── Tournaments collection ───────────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      // Any verified user can read tournament data (they need to join by code)
+      allow read: if isVerifiedUser();
+
+      // Any verified user can create a tournament
+      allow create: if isVerifiedUser()
+        && request.resource.data.adminId == request.auth.uid;
+
+      // Only the tournament admin can update or delete
+      allow update, delete: if isVerifiedUser()
+        && resource.data.adminId == request.auth.uid;
+    }
+
+    // ── Teams collection ────────────────────────────────────────────────────
+    match /teams/{teamId} {
+      // Any verified user can read teams
+      allow read: if isVerifiedUser();
+
+      // Only tournament admins can create teams
+      // The team must reference a valid tournament the user admins
+      allow create: if isVerifiedUser()
+        && request.resource.data.keys().hasAll(['tournamentId'])
+        && isTournamentAdmin(request.resource.data.tournamentId);
+
+      // Only the team creator OR tournament admin can update/delete
+      allow update: if isVerifiedUser()
+        && (resource.data.createdBy == request.auth.uid
+          || isTournamentAdmin(resource.data.tournamentId));
+
+      allow delete: if isVerifiedUser()
+        && (resource.data.createdBy == request.auth.uid
+          || isTournamentAdmin(resource.data.tournamentId));
+    }
+
+    // ── Players collection ───────────────────────────────────────────────────
+    match /players/{playerId} {
+      // Any verified user can read players
+      allow read: if isVerifiedUser();
+
+      // Only tournament admins can create/delete players
+      allow create: if isVerifiedUser()
+        && request.resource.data.keys().hasAll(['teamId'])
+        && isTournamentAdmin(
+          get(/databases/$(database)/documents/teams/$(request.resource.data.teamId)).data.tournamentId
+        );
+
+      // Stats updates: only tournament admin can update
+      allow update: if isVerifiedUser()
+        && isTournamentAdmin(
+          get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.tournamentId
+        );
+
+      allow delete: if isVerifiedUser()
+        && isTournamentAdmin(
+          get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.tournamentId
+        );
+    }
+
+    // ── Matches collection ───────────────────────────────────────────────────
+    match /matches/{matchId} {
+      // Anyone can read matches for public match link scorecard views
+      allow read: if true;
+
+      // Only tournament admins can create matches
+      allow create: if isVerifiedUser()
+        && request.resource.data.keys().hasAll(['tournamentId'])
+        && isTournamentAdmin(request.resource.data.tournamentId);
+
+      // Only tournament admins can update/delete matches
+      allow update: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+
+      allow delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Live Scores collection ───────────────────────────────────────────────
+    match /liveScores/{matchId} {
+      allow read: if true;
+
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+
+      allow update: if isVerifiedUser()
+        && (isTournamentAdmin(resource.data.tournamentId) || isScorer(resource.data.tournamentId));
+
+      allow delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // Subcollection for per-ball events
+    match /liveScores/{matchId}/balls/{ballId} {
+      allow read: if true;
+
+      allow create, update: if isVerifiedUser()
+        && (
+          isTournamentAdmin(get(/databases/$(database)/documents/liveScores/$(matchId)).data.tournamentId)
+          || isScorer(get(/databases/$(database)/documents/liveScores/$(matchId)).data.tournamentId)
+        );
+
+      allow delete: if isVerifiedUser()
+        && isTournamentAdmin(
+          get(/databases/$(database)/documents/liveScores/$(matchId)).data.tournamentId
+        );
+    }
+
+    // ── Leaderboard collection ───────────────────────────────────────────────
+    match /leaderboards/{leaderboardId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+      allow update, delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Points Table collection ──────────────────────────────────────────────
+    match /pointsTable/{tableId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+      allow update, delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Player Stats collection ──────────────────────────────────────────────
+    match /playerStats/{statId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+      allow update, delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Team Stats collection ────────────────────────────────────────────────
+    match /teamStats/{statId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+      allow update, delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Recent Matches collection ────────────────────────────────────────────
+    match /recentMatches/{matchId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser()
+        && isTournamentAdmin(request.resource.data.tournamentId);
+      allow update, delete: if isVerifiedUser()
+        && isTournamentAdmin(resource.data.tournamentId);
+    }
+
+    // ── Deny everything else ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

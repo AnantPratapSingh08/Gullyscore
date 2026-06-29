@@ -14,6 +14,7 @@ export interface Team {
   inviteCode: string
   createdAt: Timestamp | null
   playerCount: number
+  tournamentId?: string
 }
 
 export interface Player {
@@ -21,6 +22,7 @@ export interface Player {
   name: string
   role: 'Batsman' | 'Bowler' | 'All-Rounder' | 'Wicket-Keeper'
   teamId: string
+  tournamentId?: string
   addedBy: string       // uid
   joinedAt: Timestamp | null
   stats: {

@@ -40,6 +40,8 @@ export default function SignupPage() {
   const [submitting, setSubmitting]     = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [localError, setLocalError]     = useState<string | null>(null)
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [verifiedEmail, setVerifiedEmail] = useState('')
 
   const strength = getStrength(password)
   const strengthClass = strength.label.toLowerCase() as 'weak' | 'medium' | 'strong'
@@ -59,8 +61,12 @@ export default function SignupPage() {
     }
 
     setSubmitting(true)
-    await signup(name.trim(), email.trim(), password)
+    const result = await signup(name.trim(), email.trim(), password)
     setSubmitting(false)
+    if (result.needsVerification) {
+      setVerifiedEmail(email.trim())
+      setVerificationSent(true)
+    }
   }
 
   const handleGoogle = async () => {
@@ -72,6 +78,51 @@ export default function SignupPage() {
   }
 
   const displayedError = localError ?? error
+
+  // ── Verification sent screen ───────────────────────────────────────────────
+  if (verificationSent) {
+    return (
+      <div className="auth-page">
+        <div className="auth-orbs">
+          <div className="auth-orb auth-orb-1" />
+          <div className="auth-orb auth-orb-2" />
+          <div className="auth-orb auth-orb-3" />
+        </div>
+        <div className="auth-brand-panel">
+          <div className="auth-brand-inner">
+            <a href="/" className="auth-brand-logo">
+              <span className="auth-brand-logo-icon">🏏</span>
+              <span className="auth-brand-logo-text">GullyScore</span>
+            </a>
+            <p className="auth-brand-tagline">Almost There!</p>
+          </div>
+        </div>
+        <div className="auth-form-panel">
+          <div className="auth-form-card">
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>📧</div>
+              <h1 className="auth-heading">Check Your Email</h1>
+              <p className="auth-subheading" style={{ fontSize: 14, color: '#94a3b8', lineHeight: 1.6 }}>
+                Verification email sent. Please verify your email before using GullyScore.
+              </p>
+              <p style={{ fontSize: 13, color: '#64748b', marginTop: 12, lineHeight: 1.7 }}>
+                We sent a verification link to <strong style={{ color: '#22d3ee' }}>{verifiedEmail}</strong>.
+                Click the link in your email to activate your account,
+                then return here to sign in.
+              </p>
+              <Link
+                to="/login"
+                className="auth-btn auth-btn--primary"
+                style={{ display: 'block', marginTop: 24, textAlign: 'center', textDecoration: 'none' }}
+              >
+                Go to Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="auth-page">

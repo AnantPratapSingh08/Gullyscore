@@ -4,12 +4,21 @@
 // • Tournament switcher dropdown in the navbar
 // • Mobile-responsive hamburger menu
 // • User avatar chip + logout
+// • Global search button
+// • Notification bell with unread count
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
+import {
+  subscribeToNotifications,
+  markAllNotificationsRead,
+  deleteNotification,
+  NOTIF_ICON,
+  type Notification,
+} from '../../services/notificationService'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -104,6 +113,28 @@ export function AppShell({ children }: AppShellProps) {
   const [loggingOut, setLoggingOut] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [showNotifs, setShowNotifs]       = useState(false)
+  const notifsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!user) return
+    const unsub = subscribeToNotifications(user.uid, setNotifications)
+    return unsub
+  }, [user])
+
+  // Close notification panel on outside click
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) {
+        setShowNotifs(false)
+      }
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
   const displayName =
     userProfile?.name ||
     user?.displayName ||
@@ -168,8 +199,73 @@ export function AppShell({ children }: AppShellProps) {
             ))}
           </ul>
 
-          {/* Right side: avatar + logout */}
+          {/* Right side: search + notifications + avatar + logout */}
           <div className="shell-nav-right">
+            {/* Search */}
+            <button
+              className="shell-icon-btn"
+              onClick={() => navigate('/search')}
+              title="Search"
+              aria-label="Search"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
+
+            {/* Notification bell */}
+            <div className="shell-notifs-wrap" ref={notifsRef}>
+              <button
+                className="shell-icon-btn shell-bell-btn"
+                onClick={() => { setShowNotifs(v => !v); if (!showNotifs && user) markAllNotificationsRead(user.uid) }}
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="shell-notif-badge">
+                    {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifs && (
+                <div className="shell-notifs-panel">
+                  <div className="shell-notifs-header">
+                    <span className="shell-notifs-title">🔔 Notifications</span>
+                    {notifications.length > 0 && (
+                      <button className="shell-notifs-clear" onClick={() => user && markAllNotificationsRead(user.uid)}>
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="shell-notifs-empty">No notifications yet</div>
+                  ) : (
+                    <div className="shell-notifs-list">
+                      {notifications.slice(0, 12).map(n => (
+                        <div key={n.id} className={`shell-notif-item${n.read ? ' shell-notif-item--read' : ''}`}>
+                          <span className="shell-notif-icon">{NOTIF_ICON[n.type]}</span>
+                          <div className="shell-notif-body">
+                            <div className="shell-notif-item-title">{n.title}</div>
+                            <div className="shell-notif-item-msg">{n.message}</div>
+                          </div>
+                          <button
+                            className="shell-notif-del"
+                            onClick={() => user && deleteNotification(user.uid, n.id)}
+                            aria-label="Dismiss"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <NavLink to="/profile" className="shell-user-chip" title="View Profile">
               <div className="shell-avatar">{initials}</div>
               <span className="shell-username">{displayName}</span>

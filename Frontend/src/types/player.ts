@@ -135,6 +135,9 @@ export interface Player {
   /** ID of the team this player belongs to */
   teamId: string
 
+  /** ID of the tournament this player belongs to */
+  tournamentId?: string
+
   /** Jersey / shirt number */
   jerseyNumber: number
 

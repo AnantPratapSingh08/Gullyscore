@@ -58,6 +58,7 @@ function docToMatch(id: string, data: Record<string, unknown>): Match {
     team2Overs:    (data.team2Overs    as number) ?? 0,
     result:        (data.result        as Match['result']) ?? '',
     resultSummary: (data.resultSummary as string) ?? '',
+    playerOfMatch: (data.playerOfMatch as string) ?? '',
     innings1:      (data.innings1      as Match['innings1']) ?? undefined,
     innings2:      (data.innings2      as Match['innings2']) ?? undefined,
     createdAt:     (data.createdAt     as Match['createdAt']) ?? null,
@@ -158,12 +159,14 @@ export async function startMatch(matchId: string): Promise<void> {
 export async function completeMatch(
   matchId: string,
   result: Match['result'],
-  resultSummary: string
+  resultSummary: string,
+  playerOfMatch?: string
 ): Promise<void> {
   await updateDoc(doc(db, MATCHES, matchId), {
     status: 'completed',
     result,
     resultSummary,
+    playerOfMatch: playerOfMatch || '',
   })
 }
 

@@ -1,6 +1,7 @@
 // src/pages/Matches/MatchesPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Matches listing page — real-time, tabbed by status, searchable.
+// Tournament-isolated: only shows matches for the active tournament.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useMemo } from 'react'
@@ -12,8 +13,9 @@ import { ConfirmModal } from '../../components/common/ConfirmModal'
 import { useToast, ToastContainer } from '../../components/common/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
-import { createMatch, updateMatch, deleteMatch, subscribeToAllMatches } from '../../services/matchService'
-import { getAllTeams } from '../../services/teamService'
+import { useRole } from '../../context/RoleContext'
+import { createMatch, updateMatch, deleteMatch, subscribeToMatchesByTournament } from '../../services/matchService'
+import { subscribeToTeamsByTournament } from '../../services/teamService'
 import type { Match, MatchStatus } from '../../types/match'
 import type { Team } from '../../types/team'
 import { useState as useLocalState, useEffect } from 'react'
@@ -29,37 +31,29 @@ const TABS: Array<{ label: string; value: MatchStatus | 'all'; icon: string }> =
   { label: 'Completed', value: 'completed', icon: '✅' },
 ]
 
-// ── Hook: fetch all matches + teams ───────────────────────────────────────────
+// ── Hook: fetch tournament-scoped matches + teams ─────────────────────────────
 
-function useMatchesData() {
+function useMatchesData(tournamentId: string, teamIds: string[]) {
   const [matches, setMatches] = useLocalState<Match[]>([])
   const [teams,   setTeams]   = useLocalState<Team[]>([])
   const [loading, setLoading] = useLocalState(true)
 
-  async function load() {
-    setLoading(true)
-    try {
-      const unsub = subscribeToAllMatches(data => {
-        setMatches(data)
-        setLoading(false)
-      })
-      const allTeams = await getAllTeams()
-      setTeams(allTeams)
-      return unsub
-    } catch {
-      setLoading(false)
-      return () => {}
-    }
-  }
-
   useEffect(() => {
-    let unsub: (() => void) | undefined
-    load().then(u => { unsub = u })
-    return () => { unsub?.() }
-  }, [])
+    setLoading(true)
+    // Subscribe to tournament-scoped matches (real-time)
+    const unsubMatches = subscribeToMatchesByTournament(tournamentId, data => {
+      setMatches(data)
+      setLoading(false)
+    })
+    // Subscribe to tournament-scoped teams (real-time)
+    const unsubTeams = subscribeToTeamsByTournament(tournamentId, teamIds, data => setTeams(data))
+    return () => { unsubMatches(); unsubTeams() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId, JSON.stringify(teamIds)])
 
-  return { matches, teams, loading, reload: load }
+  return { matches, teams, loading }
 }
+
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -68,15 +62,10 @@ export default function MatchesPage() {
   const { user } = useAuth()
   const { activeTournamentId, activeTournament } = useActiveTournament()
   const { toasts, showToast, dismissToast } = useToast()
+  const { canManageMatches } = useRole()
 
-  const { matches, teams, loading } = useMatchesData()
-
-  // Filter by active tournament
-  const tournamentMatches = useMemo(() =>
-    activeTournamentId
-      ? matches.filter(m => m.tournamentId === activeTournamentId)
-      : matches
-  , [matches, activeTournamentId])
+  // matches and teams are already tournament-scoped from the hook
+  const { matches, teams, loading } = useMatchesData(activeTournamentId, activeTournament?.teamIds ?? [])
 
   const [tab,     setTab]     = useState<MatchStatus | 'all'>('all')
   const [search,  setSearch]  = useState('')
@@ -89,7 +78,7 @@ export default function MatchesPage() {
   // ── Filtered matches ────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return tournamentMatches.filter(m => {
+    return matches.filter(m => {
       const matchesTab    = tab === 'all' || m.status === tab
       const matchesSearch = !q ||
         m.title.toLowerCase().includes(q)      ||
@@ -98,14 +87,15 @@ export default function MatchesPage() {
         m.venue.toLowerCase().includes(q)
       return matchesTab && matchesSearch
     })
-  }, [tournamentMatches, tab, search])
+  }, [matches, tab, search])
 
   const countByTab = useMemo(() => ({
-    all:       tournamentMatches.length,
-    live:      tournamentMatches.filter(m => m.status === 'live').length,
-    upcoming:  tournamentMatches.filter(m => m.status === 'upcoming').length,
-    completed: tournamentMatches.filter(m => m.status === 'completed').length,
-  }), [tournamentMatches])
+    all:       matches.length,
+    live:      matches.filter(m => m.status === 'live').length,
+    upcoming:  matches.filter(m => m.status === 'upcoming').length,
+    completed: matches.filter(m => m.status === 'completed').length,
+  }), [matches])
+
 
   // ── Create ──────────────────────────────────────────────────────────────
   async function handleCreate(data: MatchFormData) {
@@ -203,18 +193,20 @@ export default function MatchesPage() {
             </h1>
             <p className="matches-page-subtitle">Browse, track, and manage cricket matches.</p>
           </div>
-          <div className="matches-page-actions">
-            <button
-              id="create-match-btn"
-              className="team-btn team-btn--primary"
-              onClick={() => setShowAdd(true)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Create Match
-            </button>
-          </div>
+          {canManageMatches && (
+            <div className="matches-page-actions">
+              <button
+                id="create-match-btn"
+                className="team-btn team-btn--primary"
+                onClick={() => setShowAdd(true)}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Create Match
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -266,7 +258,7 @@ export default function MatchesPage() {
             <p className="teams-empty-sub">
               {search ? 'Try a different search term.' : 'Create the first match to get started!'}
             </p>
-            {!search && (
+            {!search && canManageMatches && (
               <button className="team-btn team-btn--primary" onClick={() => setShowAdd(true)}>
                 Create First Match
               </button>
@@ -280,7 +272,7 @@ export default function MatchesPage() {
                 <MatchCard
                   key={m.id}
                   match={m}
-                  isOwner={m.createdBy === user?.uid}
+                  isOwner={canManageMatches}
                   onEdit={setEditingMatch}
                   onDelete={setDeletingMatch}
                 />

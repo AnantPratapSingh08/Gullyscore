@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import {
   BrowserRouter,
   Routes,
@@ -8,25 +8,41 @@ import {
 } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ActiveTournamentProvider } from './context/ActiveTournamentContext'
+import { RoleProvider } from './context/RoleContext'
 import { ProtectedRoute } from './components/common/ProtectedRoute'
-import { LoginPage }    from './pages/Login'
-import { SignupPage }   from './pages/Signup'
-import { DashboardPage } from './pages/Dashboard'
-import TeamsPage          from './pages/Teams/TeamsPage'
-import MyTeamsPage        from './pages/Teams/MyTeamsPage'
-import CreateTeamPage     from './pages/Teams/CreateTeamPage'
-import TeamDetailPage     from './pages/Teams/TeamDetailPage'
-import PlayersPage        from './pages/Players/PlayersPage'
-import PlayerDetailPage   from './pages/Players/PlayerDetailPage'
-import MatchesPage             from './pages/Matches/MatchesPage'
-import MatchDetailPage         from './pages/Matches/MatchDetailPage'
-import TournamentsPage         from './pages/Tournament/TournamentsPage'
-import TournamentSettingsPage  from './pages/Tournament/TournamentSettingsPage'
-import LiveScorePage           from './pages/LiveScore/LiveScorePage'
-import LeaderboardPage         from './pages/Leaderboard/LeaderboardPage'
-import ProfilePage             from './pages/Profile/ProfilePage'
-import TournamentDetailPage    from './pages/Tournament/TournamentDetailPage'
 import './App.css'
+
+// ── Lazy-loaded pages (code splitting) ───────────────────────────────────────
+const LoginPage              = lazy(() => import('./pages/Login/LoginPage'))
+const SignupPage             = lazy(() => import('./pages/Signup/SignupPage'))
+const VerifyEmailPage        = lazy(() => import('./pages/VerifyEmail/VerifyEmailPage'))
+const DashboardPage          = lazy(() => import('./pages/Dashboard/DashboardPage'))
+const TeamsPage              = lazy(() => import('./pages/Teams/TeamsPage'))
+const MyTeamsPage            = lazy(() => import('./pages/Teams/MyTeamsPage'))
+const CreateTeamPage         = lazy(() => import('./pages/Teams/CreateTeamPage'))
+const TeamDetailPage         = lazy(() => import('./pages/Teams/TeamDetailPage'))
+const PlayersPage            = lazy(() => import('./pages/Players/PlayersPage'))
+const PlayerDetailPage       = lazy(() => import('./pages/Players/PlayerDetailPage'))
+const MatchesPage            = lazy(() => import('./pages/Matches/MatchesPage'))
+const MatchDetailPage        = lazy(() => import('./pages/Matches/MatchDetailPage'))
+const TournamentsPage        = lazy(() => import('./pages/Tournament/TournamentsPage'))
+const TournamentSettingsPage = lazy(() => import('./pages/Tournament/TournamentSettingsPage'))
+const LiveScorePage          = lazy(() => import('./pages/LiveScore/LiveScorePage'))
+const LeaderboardPage        = lazy(() => import('./pages/Leaderboard/LeaderboardPage'))
+const ProfilePage            = lazy(() => import('./pages/Profile/ProfilePage'))
+const TournamentDetailPage   = lazy(() => import('./pages/Tournament/TournamentDetailPage'))
+const SearchPage             = lazy(() => import('./pages/Search/SearchPage'))
+
+// ── Suspense fallback ─────────────────────────────────────────────────────────
+function PageLoader() {
+  return (
+    <div className="app-loading">
+      <div className="app-loading-spinner" />
+      <span className="app-loading-text">Loading…</span>
+    </div>
+  )
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Landing page components (UNCHANGED from original)
@@ -340,7 +356,7 @@ function LandingPage() {
 
 // ── App shell with router ─────────────────────────────────────────────────────
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { user, loading, emailVerified } = useAuth()
 
   // Show full-screen spinner while Firebase resolves initial auth state
   if (loading) {
@@ -357,33 +373,55 @@ function AppRoutes() {
       {/* Public landing page */}
       <Route path="/" element={<LandingPage />} />
 
-      {/* Auth pages — redirect to dashboard if already logged in */}
+      {/* Auth pages — redirect appropriately if already logged in */}
       <Route
         path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={
+          user
+            ? (emailVerified ? <Navigate to="/dashboard" replace /> : <Navigate to="/verify-email" replace />)
+            : <LoginPage />
+        }
       />
       <Route
         path="/signup"
-        element={user ? <Navigate to="/dashboard" replace /> : <SignupPage />}
+        element={
+          user
+            ? (emailVerified ? <Navigate to="/dashboard" replace /> : <Navigate to="/verify-email" replace />)
+            : <SignupPage />
+        }
       />
 
-      {/* Protected routes */}
+      {/* Email verification page — for logged-in unverified users */}
+      <Route
+        path="/verify-email"
+        element={
+          !user ? <Navigate to="/login" replace />
+          : emailVerified ? <Navigate to="/dashboard" replace />
+          : <VerifyEmailPage />
+        }
+      />
+
+      {/* Public match scorecard link */}
+      <Route path="/match/:matchId" element={<Suspense fallback={<PageLoader />}><MatchDetailPage isPublic={true} /></Suspense>} />
+
+      {/* Protected routes — require auth AND email verification */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard"              element={<DashboardPage />} />
-        <Route path="/teams"                  element={<TeamsPage />} />
-        <Route path="/teams/create"           element={<CreateTeamPage />} />
-        <Route path="/teams/:teamId"          element={<TeamDetailPage />} />
-        <Route path="/my-teams"               element={<MyTeamsPage />} />
-        <Route path="/teams/:teamId/players"  element={<PlayersPage />} />
-        <Route path="/players/:playerId"      element={<PlayerDetailPage />} />
-        <Route path="/matches"                        element={<MatchesPage />} />
-        <Route path="/matches/:matchId"               element={<MatchDetailPage />} />
-        <Route path="/matches/:matchId/live"           element={<LiveScorePage />} />
-        <Route path="/leaderboard"                    element={<LeaderboardPage />} />
-        <Route path="/tournaments"                          element={<TournamentsPage />} />
-        <Route path="/tournaments/:tournamentId"            element={<TournamentDetailPage />} />
-        <Route path="/tournaments/:tournamentId/settings"   element={<TournamentSettingsPage />} />
-        <Route path="/profile"                        element={<ProfilePage />} />
+        <Route path="/dashboard"              element={<Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>} />
+        <Route path="/teams"                  element={<Suspense fallback={<PageLoader />}><TeamsPage /></Suspense>} />
+        <Route path="/teams/create"           element={<Suspense fallback={<PageLoader />}><CreateTeamPage /></Suspense>} />
+        <Route path="/teams/:teamId"          element={<Suspense fallback={<PageLoader />}><TeamDetailPage /></Suspense>} />
+        <Route path="/my-teams"               element={<Suspense fallback={<PageLoader />}><MyTeamsPage /></Suspense>} />
+        <Route path="/teams/:teamId/players"  element={<Suspense fallback={<PageLoader />}><PlayersPage /></Suspense>} />
+        <Route path="/players/:playerId"      element={<Suspense fallback={<PageLoader />}><PlayerDetailPage /></Suspense>} />
+        <Route path="/matches"                        element={<Suspense fallback={<PageLoader />}><MatchesPage /></Suspense>} />
+        <Route path="/matches/:matchId"               element={<Suspense fallback={<PageLoader />}><MatchDetailPage /></Suspense>} />
+        <Route path="/matches/:matchId/live"           element={<Suspense fallback={<PageLoader />}><LiveScorePage /></Suspense>} />
+        <Route path="/leaderboard"                    element={<Suspense fallback={<PageLoader />}><LeaderboardPage /></Suspense>} />
+        <Route path="/tournaments"                          element={<Suspense fallback={<PageLoader />}><TournamentsPage /></Suspense>} />
+        <Route path="/tournaments/:tournamentId"            element={<Suspense fallback={<PageLoader />}><TournamentDetailPage /></Suspense>} />
+        <Route path="/tournaments/:tournamentId/settings"   element={<Suspense fallback={<PageLoader />}><TournamentSettingsPage /></Suspense>} />
+        <Route path="/profile"                        element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
+        <Route path="/search"                         element={<Suspense fallback={<PageLoader />}><SearchPage /></Suspense>} />
         {/* Alias routes — required by spec */}
         <Route path="/players"                        element={<Navigate to="/teams" replace />} />
         <Route path="/live-score"                     element={<Navigate to="/matches" replace />} />
@@ -400,7 +438,11 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <ActiveTournamentProvider>
-          <AppRoutes />
+          <RoleProvider>
+            <Suspense fallback={<PageLoader />}>
+              <AppRoutes />
+            </Suspense>
+          </RoleProvider>
         </ActiveTournamentProvider>
       </AuthProvider>
     </BrowserRouter>

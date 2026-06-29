@@ -59,6 +59,11 @@ export interface Innings {
   extras:         number
   batters:        BatterEntry[]
   bowlers:        BowlerEntry[]
+  oversDecimal?:  number
+  wides?:         number
+  noBalls?:       number
+  byes?:          number
+  legByes?:       number
 }
 
 // ── Core entity ───────────────────────────────────────────────────────────────
@@ -115,6 +120,7 @@ export interface Match {
 
   result:        MatchResult | ''
   resultSummary: string   // e.g. "Warriors won by 24 runs"
+  playerOfMatch?: string
 
   // ── Detailed innings (optional, populated during/after live scoring) ──────
 

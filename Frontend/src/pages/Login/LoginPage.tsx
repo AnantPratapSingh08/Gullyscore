@@ -121,6 +121,7 @@ export default function LoginPage() {
             </div>
           )}
 
+
           {/* Forgot password panel */}
           {showForgot && (
             <div className="auth-forgot-panel">

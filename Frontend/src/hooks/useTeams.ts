@@ -9,6 +9,7 @@ import {
   subscribeToMyTeams,
   subscribeToTeam,
   subscribeToPlayers,
+  subscribeToTeamsByTournament,
 } from '../services/teamService'
 import type { Team, Player } from '../types/team'
 
@@ -25,6 +26,27 @@ export function useAllTeams() {
     )
     return unsub
   }, [])
+
+  return { teams, loading, error, setError }
+}
+
+// ── useTournamentTeams ────────────────────────────────────────────────────────
+/** Subscribes to only the teams belonging to the active tournament. */
+export function useTournamentTeams(tournamentId: string, teamIds: string[]) {
+  const [teams, setTeams]     = useState<Team[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    const unsub = subscribeToTeamsByTournament(tournamentId, teamIds, (data) => {
+      setTeams(data)
+      setLoading(false)
+    })
+    return unsub
+  // Stringify to avoid infinite loops from array reference changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId, JSON.stringify(teamIds)])
 
   return { teams, loading, error, setError }
 }
