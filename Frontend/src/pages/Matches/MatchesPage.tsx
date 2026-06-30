@@ -4,7 +4,7 @@
 // Tournament-isolated: only shows matches for the active tournament.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/team/AppShell'
 import { MatchCard } from '../../components/match/MatchCard'
@@ -18,7 +18,7 @@ import { createMatch, updateMatch, deleteMatch, cloneMatch, abandonMatch, subscr
 import { subscribeToTeamsByTournament } from '../../services/teamService'
 import type { Match, MatchStatus } from '../../types/match'
 import type { Team } from '../../types/team'
-import { useState as useLocalState, useEffect } from 'react'
+
 import '../../styles/teams.css'
 import '../../styles/matches.css'
 
@@ -35,9 +35,9 @@ const TABS: Array<{ label: string; value: MatchStatus | 'all'; icon: string }> =
 // ── Hook: fetch tournament-scoped matches + teams ─────────────────────────────
 
 function useMatchesData(tournamentId: string, teamIds: string[]) {
-  const [matches, setMatches] = useLocalState<Match[]>([])
-  const [teams,   setTeams]   = useLocalState<Team[]>([])
-  const [loading, setLoading] = useLocalState(true)
+  const [matches, setMatches] = useState<Match[]>([])
+  const [teams,   setTeams]   = useState<Team[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
