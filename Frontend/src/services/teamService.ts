@@ -139,10 +139,17 @@ export async function regenerateInviteCode(teamId: string): Promise<string> {
 export function subscribeToAllTeams(
   callback: (teams: Team[]) => void
 ): Unsubscribe {
-  return onSnapshot(collection(db, 'teams'), snap => {
-    const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
-    callback(teams)
-  })
+  return onSnapshot(
+    collection(db, 'teams'),
+    snap => {
+      const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
+      callback(teams)
+    },
+    error => {
+      console.error('[subscribeToAllTeams] error:', error)
+      callback([])
+    }
+  )
 }
 
 /**
@@ -161,10 +168,17 @@ export function subscribeToTeamsByTournament(
   }
   // Server-side filter: only returns teams for this tournament
   const q = query(collection(db, 'teams'), where('tournamentId', '==', tournamentId))
-  return onSnapshot(q, snap => {
-    const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
-    callback(teams)
-  })
+  return onSnapshot(
+    q,
+    snap => {
+      const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
+      callback(teams)
+    },
+    error => {
+      console.error('[subscribeToTeamsByTournament] error:', error)
+      callback([])
+    }
+  )
 }
 
 /** Subscribe to MY teams (real-time) */
@@ -173,10 +187,17 @@ export function subscribeToMyTeams(
   callback: (teams: Team[]) => void
 ): Unsubscribe {
   const q = query(collection(db, 'teams'), where('createdBy', '==', uid))
-  return onSnapshot(q, snap => {
-    const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
-    callback(teams)
-  })
+  return onSnapshot(
+    q,
+    snap => {
+      const teams = snap.docs.map(d => docToTeam(d.id, d.data() as Record<string, unknown>))
+      callback(teams)
+    },
+    error => {
+      console.error('[subscribeToMyTeams] error:', error)
+      callback([])
+    }
+  )
 }
 
 /** Subscribe to a single team (real-time) */
@@ -184,10 +205,17 @@ export function subscribeToTeam(
   teamId: string,
   callback: (team: Team | null) => void
 ): Unsubscribe {
-  return onSnapshot(doc(db, 'teams', teamId), snap => {
-    if (!snap.exists()) { callback(null); return }
-    callback(docToTeam(snap.id, snap.data() as Record<string, unknown>))
-  })
+  return onSnapshot(
+    doc(db, 'teams', teamId),
+    snap => {
+      if (!snap.exists()) { callback(null); return }
+      callback(docToTeam(snap.id, snap.data() as Record<string, unknown>))
+    },
+    error => {
+      console.error('[subscribeToTeam] error:', error)
+      callback(null)
+    }
+  )
 }
 
 /** Subscribe to players of a team (real-time) */
@@ -196,10 +224,17 @@ export function subscribeToPlayers(
   callback: (players: Player[]) => void
 ): Unsubscribe {
   const q = query(collection(db, 'players'), where('teamId', '==', teamId))
-  return onSnapshot(q, snap => {
-    const players = snap.docs.map(d => docToPlayer(d.id, d.data() as Record<string, unknown>))
-    callback(players)
-  })
+  return onSnapshot(
+    q,
+    snap => {
+      const players = snap.docs.map(d => docToPlayer(d.id, d.data() as Record<string, unknown>))
+      callback(players)
+    },
+    error => {
+      console.error('[subscribeToPlayers] error:', error)
+      callback([])
+    }
+  )
 }
 
 // ── Join by Invite Code ───────────────────────────────────────────────────────

@@ -236,7 +236,11 @@ export function subscribeToAllMatches(
     query(collection(db, MATCHES), orderBy('scheduledAt', 'desc')),
     snap => callback(
       snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
-    )
+    ),
+    error => {
+      console.error('[subscribeToAllMatches] error:', error)
+      callback([])
+    }
   )
 }
 
@@ -245,10 +249,17 @@ export function subscribeToMatch(
   matchId: string,
   callback: (match: Match | null) => void
 ): Unsubscribe {
-  return onSnapshot(doc(db, MATCHES, matchId), snap => {
-    if (!snap.exists()) { callback(null); return }
-    callback(docToMatch(snap.id, snap.data() as Record<string, unknown>))
-  })
+  return onSnapshot(
+    doc(db, MATCHES, matchId),
+    snap => {
+      if (!snap.exists()) { callback(null); return }
+      callback(docToMatch(snap.id, snap.data() as Record<string, unknown>))
+    },
+    error => {
+      console.error('[subscribeToMatch] error:', error)
+      callback(null)
+    }
+  )
 }
 
 /** Subscribe to live matches only. */
@@ -259,7 +270,11 @@ export function subscribeToLiveMatches(
     query(collection(db, MATCHES), where('status', '==', 'live')),
     snap => callback(
       snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
-    )
+    ),
+    error => {
+      console.error('[subscribeToLiveMatches] error:', error)
+      callback([])
+    }
   )
 }
 
@@ -280,7 +295,11 @@ export function subscribeToMatchesByTournament(
     ),
     snap => callback(
       snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
-    )
+    ),
+    error => {
+      console.error('[subscribeToMatchesByTournament] error:', error)
+      callback([])
+    }
   )
 }
 

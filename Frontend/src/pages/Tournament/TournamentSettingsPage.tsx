@@ -16,9 +16,10 @@ import {
   declareTournamentWinner,
 } from '../../services/tournamentService'
 import { assertTournamentAdmin, adminActionBlockReason, isTournamentAdmin } from '../../utils/tournamentGuard'
-import { getAllTeams } from '../../services/teamService'
-import { getAllMatches } from '../../services/matchService'
+import { subscribeToTeamsByTournament } from '../../services/teamService'
+import { subscribeToMatchesByTournament } from '../../services/matchService'
 import { useAuth } from '../../context/AuthContext'
+import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import type { Tournament, TournamentFormat, TournamentStatus } from '../../types/tournament'
 import type { Team } from '../../types/team'
 import type { Match } from '../../types/match'
@@ -169,7 +170,11 @@ function TeamsPanel({ tournament, isAdmin }: { tournament: Tournament; isAdmin: 
   const [selected,  setSelected]  = useState('')
   const [saving,    setSaving]    = useState(false)
 
-  useEffect(() => { getAllTeams().then(setAllTeams) }, [])
+  useEffect(() => {
+    if (!tournament.id) return
+    const unsub = subscribeToTeamsByTournament(tournament.id, [], setAllTeams)
+    return unsub
+  }, [tournament.id])
 
   const available = allTeams.filter(t => !tournament.teamIds.includes(t.id))
   const enrolled  = allTeams.filter(t => tournament.teamIds.includes(t.id))
@@ -227,7 +232,11 @@ function MatchesPanel({ tournament, isAdmin }: { tournament: Tournament; isAdmin
   const [allMatches, setAllMatches] = useState<Match[]>([])
   const [selected,   setSelected]   = useState('')
 
-  useEffect(() => { getAllMatches().then(setAllMatches) }, [])
+  useEffect(() => {
+    if (!tournament.id) return
+    const unsub = subscribeToMatchesByTournament(tournament.id, setAllMatches)
+    return unsub
+  }, [tournament.id])
 
   const available = allMatches.filter(m => !tournament.matchIds.includes(m.id))
   const enrolled  = allMatches.filter(m => tournament.matchIds.includes(m.id))
@@ -283,7 +292,11 @@ function WinnerPanel({ tournament, isAdmin }: { tournament: Tournament; isAdmin:
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [saving,   setSaving]   = useState(false)
 
-  useEffect(() => { getAllTeams().then(setAllTeams) }, [])
+  useEffect(() => {
+    if (!tournament.id) return
+    const unsub = subscribeToTeamsByTournament(tournament.id, [], setAllTeams)
+    return unsub
+  }, [tournament.id])
 
   const enrolled = allTeams.filter(t => tournament.teamIds.includes(t.id))
   const winner   = allTeams.find(t => t.id === tournament.winnerId)
@@ -332,6 +345,14 @@ function TournamentSettingsInner() {
   const { toasts, showToast, dismissToast } = useToast()
   const [showDelete, setShowDelete] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const { activeTournamentId, setActiveTournamentId } = useActiveTournament()
+
+  useEffect(() => {
+    if (tournament?.id && tournament.id !== activeTournamentId) {
+      setActiveTournamentId(tournament.id)
+    }
+  }, [tournament?.id, activeTournamentId, setActiveTournamentId])
 
   async function handleDelete() {
     if (!tournament || !user) return

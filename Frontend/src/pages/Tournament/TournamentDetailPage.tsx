@@ -222,14 +222,15 @@ export default function TournamentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [accessGranted, setAccessGranted] = useState(false)
-  const { joinedIds } = useActiveTournament()
+  const { joinedIds, activeTournamentId, setActiveTournamentId } = useActiveTournament()
   const { canManageTournament } = useRole()
 
-  // Check access on mount
+  // Sync active tournament context with current route
   useEffect(() => {
-    if (!tournamentId) return
-    // Owner always has access — check after tournament loads
-  }, [tournamentId])
+    if (tournamentId && tournamentId !== activeTournamentId) {
+      setActiveTournamentId(tournamentId)
+    }
+  }, [tournamentId, activeTournamentId, setActiveTournamentId])
 
   // Subscribe to tournament
   useEffect(() => {

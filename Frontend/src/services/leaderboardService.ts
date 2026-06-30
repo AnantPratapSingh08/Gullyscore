@@ -242,25 +242,38 @@ export function subscribeToLeaderboard(callback: (data: LeaderboardData) => void
       initialised = true
       recompute()
     },
+    error => {
+      console.error('[subscribeToLeaderboard] players error:', error)
+      initialised = true
+      recompute()
+    }
   )
 
-  const unsubTeams = onSnapshot(collection(db, 'teams'), snap => {
-    teams = snap.docs.map(d => {
-      const data = d.data() as Record<string, unknown>
-      return {
-        id:          d.id,
-        teamName:    (data.teamName    as string) ?? '',
-        logo:        (data.logo        as string) ?? '🏏',
-        captain:     (data.captain     as string) ?? '',
-        createdBy:   (data.createdBy   as string) ?? '',
-        inviteCode:  (data.inviteCode  as string) ?? '',
-        createdAt:   (data.createdAt   as Team['createdAt']) ?? null,
-        playerCount: (data.playerCount as number) ?? 0,
-      }
-    })
-    initialised = true
-    recompute()
-  })
+  const unsubTeams = onSnapshot(
+    collection(db, 'teams'),
+    snap => {
+      teams = snap.docs.map(d => {
+        const data = d.data() as Record<string, unknown>
+        return {
+          id:          d.id,
+          teamName:    (data.teamName    as string) ?? '',
+          logo:        (data.logo        as string) ?? '🏏',
+          captain:     (data.captain     as string) ?? '',
+          createdBy:   (data.createdBy   as string) ?? '',
+          inviteCode:  (data.inviteCode  as string) ?? '',
+          createdAt:   (data.createdAt   as Team['createdAt']) ?? null,
+          playerCount: (data.playerCount as number) ?? 0,
+        }
+      })
+      initialised = true
+      recompute()
+    },
+    error => {
+      console.error('[subscribeToLeaderboard] teams error:', error)
+      initialised = true
+      recompute()
+    }
+  )
 
   return () => { unsubPlayers(); unsubTeams() }
 }
@@ -299,25 +312,38 @@ export function subscribeToTournamentLeaderboard(
       initialised = true
       recompute()
     },
+    error => {
+      console.error('[subscribeToTournamentLeaderboard] players error:', error)
+      initialised = true
+      recompute()
+    }
   )
 
-  const unsubTeams = onSnapshot(collection(db, 'teams'), snap => {
-    teams = snap.docs.map(d => {
-      const data = d.data() as Record<string, unknown>
-      return {
-        id:          d.id,
-        teamName:    (data.teamName    as string) ?? '',
-        logo:        (data.logo        as string) ?? '🏏',
-        captain:     (data.captain     as string) ?? '',
-        createdBy:   (data.createdBy   as string) ?? '',
-        inviteCode:  (data.inviteCode  as string) ?? '',
-        createdAt:   (data.createdAt   as Team['createdAt']) ?? null,
-        playerCount: (data.playerCount as number) ?? 0,
-      }
-    })
-    initialised = true
-    recompute()
-  })
+  const unsubTeams = onSnapshot(
+    collection(db, 'teams'),
+    snap => {
+      teams = snap.docs.map(d => {
+        const data = d.data() as Record<string, unknown>
+        return {
+          id:          d.id,
+          teamName:    (data.teamName    as string) ?? '',
+          logo:        (data.logo        as string) ?? '🏏',
+          captain:     (data.captain     as string) ?? '',
+          createdBy:   (data.createdBy   as string) ?? '',
+          inviteCode:  (data.inviteCode  as string) ?? '',
+          createdAt:   (data.createdAt   as Team['createdAt']) ?? null,
+          playerCount: (data.playerCount as number) ?? 0,
+        }
+      })
+      initialised = true
+      recompute()
+    },
+    error => {
+      console.error('[subscribeToTournamentLeaderboard] teams error:', error)
+      initialised = true
+      recompute()
+    }
+  )
 
   return () => { unsubPlayers(); unsubTeams() }
 }

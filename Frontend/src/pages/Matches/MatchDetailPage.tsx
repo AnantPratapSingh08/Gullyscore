@@ -20,7 +20,7 @@ import {
   updateScore,
   subscribeToMatch,
 } from '../../services/matchService'
-import { getAllTeams } from '../../services/teamService'
+import { subscribeToTeamsByTournament } from '../../services/teamService'
 import type { Match } from '../../types/match'
 import type { Team } from '../../types/team'
 
@@ -33,17 +33,25 @@ import '../../styles/matches.css'
 // ── Status helpers ────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<Match['status'], string> = {
-  live:      'Live',
-  upcoming:  'Upcoming',
-  completed: 'Completed',
-  abandoned: 'Abandoned',
+  live:       'Live',
+  upcoming:   'Upcoming',
+  completed:  'Completed',
+  abandoned:  'Abandoned',
+  cancelled:  'Cancelled',
+  no_result:  'No Result',
+  rain_delay: 'Rain Delay',
+  super_over: 'Super Over',
 }
 
 const STATUS_COLOR: Record<Match['status'], string> = {
-  live:      '#4ade80',
-  upcoming:  '#38bdf8',
-  completed: '#94a3b8',
-  abandoned: '#f87171',
+  live:       '#4ade80',
+  upcoming:   '#38bdf8',
+  completed:  '#94a3b8',
+  abandoned:  '#f87171',
+  cancelled:  '#f87171',
+  no_result:  '#f87171',
+  rain_delay: '#fbbf24',
+  super_over: '#a78bfa',
 }
 
 function formatDate(iso: string) {
@@ -233,14 +241,24 @@ function useMatchDetail(matchId: string | undefined) {
 
   useEffect(() => {
     if (!matchId) return
-    let unsub: (() => void) | undefined
-    unsub = subscribeToMatch(matchId, data => {
+    let unsubMatch: (() => void) | undefined
+    let unsubTeams: (() => void) | undefined
+
+    unsubMatch = subscribeToMatch(matchId, data => {
       if (!data) { setError('Match not found.'); setLoading(false); return }
       setMatch(data)
       setLoading(false)
+
+      if (data.tournamentId) {
+        unsubTeams?.()
+        unsubTeams = subscribeToTeamsByTournament(data.tournamentId, [], setTeams)
+      }
     })
-    getAllTeams().then(setTeams)
-    return () => { unsub?.() }
+
+    return () => {
+      unsubMatch?.()
+      unsubTeams?.()
+    }
   }, [matchId])
 
   return { match, teams, loading, error }

@@ -166,7 +166,11 @@ export function subscribeToAllTournaments(
 ): Unsubscribe {
   return onSnapshot(
     query(collection(db, TOURNAMENTS), orderBy('createdAt', 'desc')),
-    snap => callback(snap.docs.map(d => docToTournament(d.id, d.data() as Record<string, unknown>)))
+    snap => callback(snap.docs.map(d => docToTournament(d.id, d.data() as Record<string, unknown>))),
+    error => {
+      console.error('[subscribeToAllTournaments] error:', error)
+      callback([])
+    }
   )
 }
 
@@ -174,10 +178,17 @@ export function subscribeToTournament(
   id: string,
   callback: (tournament: Tournament | null) => void
 ): Unsubscribe {
-  return onSnapshot(doc(db, TOURNAMENTS, id), snap => {
-    if (!snap.exists()) { callback(null); return }
-    callback(docToTournament(snap.id, snap.data() as Record<string, unknown>))
-  })
+  return onSnapshot(
+    doc(db, TOURNAMENTS, id),
+    snap => {
+      if (!snap.exists()) { callback(null); return }
+      callback(docToTournament(snap.id, snap.data() as Record<string, unknown>))
+    },
+    error => {
+      console.error('[subscribeToTournament] error:', error)
+      callback(null)
+    }
+  )
 }
 
 export function subscribeToMyTournaments(
@@ -186,7 +197,11 @@ export function subscribeToMyTournaments(
 ): Unsubscribe {
   return onSnapshot(
     query(collection(db, TOURNAMENTS), where('adminId', '==', uid)),
-    snap => callback(snap.docs.map(d => docToTournament(d.id, d.data() as Record<string, unknown>)))
+    snap => callback(snap.docs.map(d => docToTournament(d.id, d.data() as Record<string, unknown>))),
+    error => {
+      console.error('[subscribeToMyTournaments] error:', error)
+      callback([])
+    }
   )
 }
 
