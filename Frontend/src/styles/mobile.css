@@ -1,0 +1,459 @@
+/* src/styles/mobile.css
+   ─────────────────────────────────────────────────────────────────────────────
+   Mobile-First Responsive Overrides
+   Breakpoints:
+     ≤ 768px  — tablets / large phones
+     ≤ 540px  — phones (primary target)
+     ≤ 380px  — small phones (iPhone SE, Galaxy A series)
+   ─────────────────────────────────────────────────────────────────────────────
+*/
+
+/* ── Mobile Bottom Navigation Bar ────────────────────────────────────────────── */
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: rgba(238, 243, 248, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(31, 41, 55, 0.05);
+    padding: 6px 0 env(safe-area-inset-bottom, 6px);
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    gap: 0;
+    justify-content: space-around;
+    align-items: stretch;
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    padding: 6px 4px;
+    text-decoration: none;
+    color: #6B7280;
+    border-radius: 12px;
+    transition: color 0.18s, background 0.18s;
+    min-height: 52px;
+  }
+  .mobile-bottom-nav-item:active {
+    background: rgba(255, 138, 101,0.07);
+  }
+  .mobile-bottom-nav-item--active {
+    color: #FF8A65;
+  }
+  .mobile-bottom-nav-item--active .mobile-bottom-nav-icon {
+    background: rgba(255, 138, 101,0.12);
+    border-radius: 10px;
+  }
+
+  .mobile-bottom-nav-icon {
+    font-size: 20px;
+    padding: 4px 10px;
+    line-height: 1;
+    transition: background 0.18s;
+  }
+
+  .mobile-bottom-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: inherit;
+  }
+}
+
+/* ── 0. Base touch improvements ─────────────────────────────────────────────── */
+* {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+input, select, textarea, button {
+  font-size: max(16px, 1em); /* prevents iOS zoom on focus */
+}
+select { appearance: none; -webkit-appearance: none; }
+
+/* ── 1. App Shell / Navbar ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .shell-navbar-inner {
+    padding: 0 16px;
+    height: 56px;
+  }
+  .shell-logo-text { font-size: 16px; }
+  .shell-content { padding: 20px 14px 90px; } /* bottom padding for nav bar */
+
+  /* Hide desktop nav, show hamburger */
+  .shell-nav-links { display: none; }
+  .shell-hamburger { display: flex; }
+
+  /* Hide username label to save space */
+  .shell-user-chip .shell-username { display: none; }
+
+  /* Mobile menu links: bigger tap targets */
+  .shell-mobile-link { padding: 14px 18px; font-size: 16px; }
+  .shell-mobile-logout { padding: 14px 18px; font-size: 16px; }
+
+  /* Tournament switcher: move to bar below navbar */
+  .shell-navbar .ts-wrap { display: none; }
+  .shell-tournament-bar { display: block; }
+}
+
+/* ── 2. Bottom navigation bar (mobile only) ──────────────────────────────────── */
+/* Add a fixed bottom nav for quick access on small screens */
+@media (max-width: 540px) {
+  .shell-content { padding-bottom: 88px; }
+}
+
+/* ── 3. Buttons ──────────────────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .team-btn { padding: 11px 16px; font-size: 14px; }
+  .team-btn--sm { padding: 8px 12px; font-size: 12px; }
+  /* Full-width buttons in action rows */
+  .teams-page-actions { width: 100%; }
+  .teams-page-actions .team-btn { flex: 1; }
+}
+
+/* ── 4. Teams Page ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .teams-page-header { flex-direction: column; gap: 14px; }
+  .teams-page-title { font-size: 24px; }
+  .teams-grid { grid-template-columns: 1fr; gap: 14px; }
+  .join-panel { padding: 18px 16px; }
+  .join-panel-input-row { flex-direction: column; }
+  .join-code-input { min-width: unset; width: 100%; }
+}
+
+@media (max-width: 540px) {
+  .teams-page-actions { flex-direction: row; }
+  .team-card { padding: 18px 16px; }
+  .team-card-logo { font-size: 32px; }
+  .team-card-name { font-size: 15px; }
+  .team-card-stat-value { font-size: 15px; }
+}
+
+/* ── 5. Team Detail Page ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .team-detail-hero {
+    padding: 20px 18px;
+    gap: 16px;
+  }
+  .team-detail-logo { font-size: 54px; }
+  .team-detail-name { font-size: 22px; }
+  .team-detail-name-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .team-invite-row { flex-direction: column; gap: 10px; }
+  .team-invite-code { font-size: 22px; letter-spacing: .18em; }
+
+  /* Player rows */
+  .player-row { padding: 12px 14px; gap: 10px; flex-wrap: wrap; }
+  .player-stats { display: flex; gap: 12px; } /* keep visible on tablet */
+
+  /* Add player form */
+  .add-player-form {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 540px) {
+  .team-detail-hero { padding: 18px 14px; }
+  .team-detail-logo { font-size: 44px; }
+  .team-roster-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  /* Hide stat numbers on very small screens to avoid overflow */
+  .player-stats { display: none; }
+
+  /* Captain button shrinks */
+  #set-captain-btn, [id^="set-captain-"] { padding: 5px 8px !important; font-size: 12px !important; }
+}
+
+/* ── 6. Create Team Page ─────────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .create-team-card { padding: 22px 16px; border-radius: 18px; }
+  .create-team-title { font-size: 20px; }
+  .team-logo-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* ── 7. Matches Page ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .matches-page { padding: 20px 14px 80px; }
+  .matches-page-header { flex-direction: column; gap: 14px; }
+  .matches-page-title { font-size: 22px; }
+  .matches-page-actions { width: 100%; }
+  .matches-page-actions .team-btn { flex: 1; }
+  .matches-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Tab bar: scrollable, equal-width tabs */
+  .match-tabs { padding: 3px; gap: 2px; }
+  .match-tab  { padding: 8px 12px; font-size: 12px; flex: 1; justify-content: center; }
+}
+
+@media (max-width: 540px) {
+  .match-card { padding: 16px 14px; border-radius: 16px; }
+  .match-card-team-logo { font-size: 22px; }
+  .match-card-team-name { font-size: 12px; max-width: 90px; }
+  .match-card-team-score { font-size: 18px; }
+}
+
+/* ── 8. Match Detail Page ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .match-detail-page { padding: 16px 12px 80px; }
+  .match-detail-hero-inner { padding: 18px 16px; }
+  .match-detail-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .match-detail-scoreboard {
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    padding: 16px 0;
+  }
+  .match-detail-score { font-size: 26px; }
+  .match-detail-team-logo { font-size: 30px; }
+  .match-detail-team-name { font-size: 13px; }
+  .match-result-banner { margin: 0 -16px -18px; padding: 12px 16px; }
+  .match-admin-bar { gap: 8px; }
+  .match-admin-bar .team-btn { flex: 1; font-size: 13px; padding: 10px 12px; }
+  .match-score-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Scorecard table: scrollable */
+  .scorecard-table-wrapper { overflow-x: auto; }
+  .scorecard-table th, .scorecard-table td { padding: 9px 10px; font-size: 12px; }
+}
+
+@media (max-width: 540px) {
+  .match-detail-score { font-size: 22px; }
+  .match-detail-overs { font-size: 11px; }
+  .match-detail-meta-row { gap: 10px; }
+  .match-score-grid { grid-template-columns: 1fr 1fr; }
+  .scorecard-table th:nth-child(n+5),
+  .scorecard-table td:nth-child(n+5) { display: none; } /* hide extras cols */
+}
+
+/* Toss Wizard modal full-screen on mobile */
+@media (max-width: 540px) {
+  /* Inline style override handled via CSS variable fallback */
+  .toss-wizard-modal-card {
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin-top: auto;
+  }
+}
+
+/* ── 9. Live Score Page ───────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .live-score-page { padding: 16px 12px 80px; }
+  .live-scoreboard-inner { padding: 16px; }
+  .live-teams-row { gap: 10px; padding: 12px 0; }
+  .live-team-score { font-size: 34px; }
+  .live-team-logo { font-size: 28px; }
+  .live-team-name { font-size: 13px; }
+  .live-layout { grid-template-columns: 1fr; gap: 14px; }
+  .live-layout-aside { gap: 12px; }
+
+  /* Scoring pad */
+  .live-scoring-pad { padding: 18px 14px; border-radius: 16px; }
+  .live-player-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Outcome buttons: bigger tap target on phones */
+  .live-outcome-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .live-outcome-btn { height: 52px; font-size: 14px; border-radius: 12px; }
+
+  /* Record button */
+  .live-record-btn { padding: 15px; font-size: 14px; }
+
+  /* Ball ticker */
+  .live-balls-row { gap: 6px; }
+  .live-ball { width: 34px; height: 34px; font-size: 12px; }
+
+  /* Scorecard table */
+  .live-scorecard-table th, .live-scorecard-table td { padding: 8px 10px; font-size: 12px; }
+  .live-rate-strip { gap: 14px; }
+  .live-rate-value { font-size: 15px; }
+}
+
+@media (max-width: 540px) {
+  .live-team-score { font-size: 28px; }
+  .live-team-score--dim { font-size: 20px; }
+  .live-outcome-grid { grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .live-outcome-btn { height: 48px; font-size: 13px; }
+  .live-player-row { grid-template-columns: 1fr; }
+
+  /* Setup panel */
+  .live-setup-panel { padding: 24px 16px; border-radius: 18px; }
+  .live-setup-title { font-size: 18px; }
+  .live-setup-icon  { font-size: 40px; }
+}
+
+@media (max-width: 380px) {
+  .live-outcome-grid { grid-template-columns: repeat(3, 1fr); }
+  .live-outcome-btn { height: 44px; font-size: 12px; border-radius: 10px; }
+  .live-team-score { font-size: 24px; }
+}
+
+/* ── 10. Dashboard ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dash-welcome { padding: 18px 16px; gap: 14px; }
+  .dash-welcome-avatar { width: 52px; height: 52px; font-size: 1.2rem; }
+  .dash-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .dash-actions-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dash-cards-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+
+@media (max-width: 540px) {
+  .dash-welcome { flex-direction: row; padding: 16px 14px; }
+  .dash-welcome-badge { display: none; }
+  .dash-welcome-greeting { font-size: 1.1rem; }
+  .dash-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-actions-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dash-action-btn { font-size: 0.78rem; padding: 0.65rem 0.5rem; white-space: normal; text-align: center; }
+  .dash-mystats-grid { grid-template-columns: repeat(3, 1fr); }
+  .dash-join-row { flex-direction: column; }
+  .dash-join-input, .dash-join-btn { width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .dash-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dash-welcome-avatar { width: 44px; height: 44px; font-size: 1rem; }
+}
+
+/* ── 11. Tournament Pages ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Tournament list */
+  .teams-page-header { flex-direction: column; }
+
+  /* Tournament detail hero */
+  .team-detail-hero { flex-direction: column; gap: 16px; }
+
+  /* Tab bar */
+  .match-tabs .match-tab { flex: 1; font-size: 11px; padding: 8px 6px; }
+
+  /* Admin checklist on small screen */
+  [style*="Admin Setup Checklist"] + div { gap: 8px; }
+}
+
+@media (max-width: 540px) {
+  /* Inline fixture form grid → single column */
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── 12. Forms & Modals ──────────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  /* Modal: slide up from bottom */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-card {
+    border-radius: 24px 24px 0 0;
+    padding: 28px 20px 36px;
+    max-width: 100%;
+    width: 100%;
+  }
+  .modal-actions { flex-direction: column; gap: 8px; }
+  .modal-btn { width: 100%; }
+
+  /* Side panel: full width */
+  .team-side-panel { max-width: 100%; padding: 24px 16px; }
+  .team-side-panel-header { margin-bottom: 20px; }
+
+  /* Form inputs: comfortable height */
+  .team-form-input { padding: 13px 14px; font-size: 16px; }
+  .team-form-label { font-size: 12px; }
+  .team-form-actions { flex-direction: column; gap: 8px; }
+  .team-form-actions .team-btn { width: 100%; }
+
+  /* Match form */
+  .match-form-row { grid-template-columns: 1fr; }
+  .create-match-card { padding: 22px 16px; }
+}
+
+/* ── 13. Auth Pages ───────────────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  /* Auth card should be full viewport height */
+  .auth-root { padding: 0; min-height: 100svh; align-items: flex-end; }
+  .auth-card {
+    border-radius: 28px 28px 0 0;
+    padding: 32px 20px 40px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .auth-logo { margin-bottom: 12px; }
+  .auth-title { font-size: 20px; }
+  .auth-input { padding: 13px 14px; }
+}
+
+/* ── 14. Leaderboard / Profile ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Leaderboard table: horizontal scroll */
+  .lb-table-wrap, .dash-table-wrap { overflow-x: auto; }
+  .lb-table, .dash-table { min-width: 520px; }
+  .lb-table th, .lb-table td { padding: 9px 10px; font-size: 12px; }
+}
+
+@media (max-width: 540px) {
+  .profile-hero { flex-direction: column; align-items: center; text-align: center; padding: 20px 16px; }
+  .profile-stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── 15. Toast: mobile position ──────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .toast-container {
+    bottom: auto;
+    top: 70px;       /* below navbar */
+    right: 12px;
+    left: 12px;
+    max-width: 100%;
+  }
+  .toast { font-size: 13px; padding: 11px 14px; border-radius: 12px; }
+}
+
+/* ── 16. Player form chips ───────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .player-form-chip { padding: 7px 10px; font-size: 12px; }
+}
+
+/* ── 17. Back button & page spacing ──────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .team-back-btn { margin-bottom: 16px; font-size: 13px; }
+  .teams-page { animation: none; } /* reduce motion on mobile */
+}
+
+/* ── 18. Horizontal scrollable tabs ─────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .match-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  .match-tab { scroll-snap-align: start; min-width: fit-content; }
+}
+
+/* ── 19. Reduce heavy animations on mobile ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .shell-orb { display: none; } /* orbs are too heavy on mobile GPU */
+  .team-card:hover { transform: none; }
+  .dash-nav-card:hover { transform: none; }
+}
+
+/* ── 20. Safe area insets (notch / home bar) ─────────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .shell-content {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  .toast-container {
+    bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  @media (max-width: 540px) {
+    .toast-container { bottom: auto; } /* overridden to top on small */
+  }
+  .live-scoring-pad,
+  .match-admin-bar {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}

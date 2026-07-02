@@ -14,6 +14,7 @@ import { AppShell } from '../../components/team/AppShell'
 import { subscribeToMatchesByTournament } from '../../services/matchService'
 import { subscribeToTournamentLeaderboard } from '../../services/leaderboardService'
 import { subscribeToMyTeams } from '../../services/teamService'
+import { exportPointsTablePDF } from '../../services/pdfService'
 import type { Match } from '../../types/match'
 import type { Team } from '../../types/team'
 import type { PointsTableEntry } from '../../types/tournament'
@@ -132,33 +133,165 @@ function ResultCard({ match }: { match: Match }) {
 }
 
 // ── Points table ──────────────────────────────────────────────────────────────
-function PointsTable({ entries }: { entries: PointsTableEntry[] }) {
+function PointsTable({ tournament, entries }: { tournament: { name: string, logo: string }, entries: PointsTableEntry[] }) {
   if (entries.length === 0) return null
   const sorted = [...entries].sort((a, b) => b.points - a.points || b.nrr - a.nrr)
+
+  // Render form dot badges
+  const renderFormDot = (outcome: 'W' | 'L' | 'T' | 'NR', idx: number) => {
+    let bg = '#475569' // grey for T/NR
+    let color = '#ffffff'
+    let text: string = outcome
+
+    if (outcome === 'W') {
+      bg = '#10b981' // Green
+    } else if (outcome === 'L') {
+      bg = '#ef4444' // Red
+    } else if (outcome === 'T') {
+      text = 'T'
+      bg = '#64748b'
+    } else {
+      text = 'N'
+      bg = '#64748b'
+    }
+
+    return (
+      <span
+        key={idx}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          backgroundColor: bg,
+          color: color,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 9,
+          fontWeight: 900,
+          marginRight: 3,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+        }}
+      >
+        {text}
+      </span>
+    )
+  }
+
   return (
     <div className="dash-table-wrap">
-      <div className="dash-section-title">🏅 Points Table</div>
-      <table className="dash-table">
-        <thead>
-          <tr>
-            <th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>T</th><th>NRR</th><th>Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((e, i) => (
-            <tr key={e.teamId} className={i === 0 ? 'dash-table-leader' : ''}>
-              <td>{i + 1}</td>
-              <td><span>{e.teamLogo}</span> {e.teamName || '—'}</td>
-              <td>{e.played}</td>
-              <td>{e.won}</td>
-              <td>{e.lost}</td>
-              <td>{e.tied}</td>
-              <td className={e.nrr >= 0 ? 'pos' : 'neg'}>{e.nrr >= 0 ? '+' : ''}{e.nrr.toFixed(3)}</td>
-              <td className="dash-table-pts">{e.points}</td>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="dash-section-title" style={{ marginBottom: 0 }}>🏅 Points Table</div>
+        <button
+          className="team-btn team-btn--outline team-btn--sm"
+          onClick={() => exportPointsTablePDF(
+            tournament.name,
+            tournament.logo,
+            sorted.map((r, i) => ({
+              rank: i + 1, team: r.teamName, logo: r.teamLogo, played: r.played, won: r.won, lost: r.lost,
+              nr: (r.nr || 0) + (r.tied || 0), nrr: r.nrr.toFixed(3), points: r.points, form: r.form?.join('') || ''
+            }))
+          )}
+        >
+          📄 Download PDF
+        </button>
+      </div>
+      <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid rgba(31, 41, 55, 0.05)' }}>
+        <table className="dash-table" style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'rgba(31, 41, 55, 0.02)', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
+              <th style={{ padding: '12px 14px', textAlign: 'left', width: 40 }}>#</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left' }}>Team</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 45 }}>P</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 45 }}>W</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 45 }}>L</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 45 }}>NR</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 85 }}>NRR</th>
+              <th style={{ padding: '12px 14px', textAlign: 'center', width: 60 }}>Pts</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', width: 130 }}>Form</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((row, i) => {
+              const isPlayoffs = i < 4
+              const rowBg = i % 2 === 0 ? 'rgba(31, 41, 55, 0.02)' : 'transparent'
+              const borderLeftStyle = isPlayoffs 
+                ? '4px solid #10b981' // Green indicator for playoffs
+                : '4px solid transparent'
+
+              return (
+                <tr 
+                  key={row.teamId} 
+                  style={{ 
+                    background: isPlayoffs ? 'rgba(16,185,129,0.02)' : rowBg,
+                    transition: 'background 0.2s',
+                    borderBottom: '1px solid rgba(31, 41, 55, 0.05)'
+                  }}
+                >
+                  <td style={{ 
+                    padding: '12px 14px',
+                    fontWeight: 700, 
+                    color: isPlayoffs ? '#10b981' : '#64748b',
+                    borderLeft: borderLeftStyle,
+                    textAlign: 'left'
+                  }}>
+                    {i + 1}
+                  </td>
+                  <td style={{ padding: '12px 14px', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 16 }}>{row.teamLogo}</span>
+                      <span style={{ color: '#1f2937', fontWeight: 700 }}>{row.teamName}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: '#374151' }}>{row.played}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#10b981', fontWeight: 700 }}>{row.won}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#ef4444' }}>{row.lost}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#94a3b8' }}>{(row.nr || 0) + (row.tied || 0)}</td>
+                  <td style={{ 
+                    padding: '12px 14px', 
+                    textAlign: 'center', 
+                    color: row.nrr >= 0 ? '#10b981' : '#f87171',
+                    fontWeight: 600
+                  }}>
+                    {row.nrr >= 0 ? '+' : ''}{row.nrr.toFixed(3)}
+                  </td>
+                  <td style={{ 
+                    padding: '12px 14px', 
+                    textAlign: 'center', 
+                    color: '#f59e0b', 
+                    fontWeight: 900, 
+                    fontSize: 14 
+                  }}>
+                    {row.points}
+                  </td>
+                  <td style={{ padding: '12px 14px', textAlign: 'left' }}>
+                    {row.form && row.form.length > 0 ? (
+                      <div style={{ display: 'flex' }}>
+                        {row.form.map((outcome, idx) => renderFormDot(outcome, idx))}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#475569', fontSize: 11 }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div style={{ 
+          padding: '8px 14px', 
+          fontSize: 10, 
+          color: '#64748b', 
+          background: 'rgba(31, 41, 55, 0.05)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 5,
+          borderTop: '1px solid rgba(31, 41, 55, 0.05)'
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+          <span>Top 4 qualify for Playoffs</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -263,7 +396,7 @@ export default function DashboardPage() {
   // ── Real-time: tournament-scoped leaderboard ──────────────────────────────
   const teamIds = useMemo(() => activeTournament?.teamIds ?? [], [activeTournament])
   useEffect(() => {
-    const unsub = subscribeToTournamentLeaderboard(teamIds, setLb)
+    const unsub = subscribeToTournamentLeaderboard(activeTournamentId, teamIds, setLb)
     return unsub
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(teamIds)])
@@ -434,7 +567,7 @@ export default function DashboardPage() {
             {/* ── Points Table ───────────────────────────────────────────── */}
             {(activeTournament.pointsTable?.length ?? 0) > 0 && (
               <div className="dash-section">
-                <PointsTable entries={activeTournament.pointsTable} />
+                <PointsTable tournament={activeTournament} entries={activeTournament.pointsTable!} />
               </div>
             )}
 

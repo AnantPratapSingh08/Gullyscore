@@ -86,8 +86,8 @@ service cloud.firestore {
 
     // ── Tournaments collection ───────────────────────────────────────────────
     match /tournaments/{tournamentId} {
-      // Any verified user can read tournament data
-      allow read: if isVerifiedUser();
+      // Any authenticated user can read tournament data
+      allow read: if isAuth();
 
       // Any verified user can create a tournament (adminId must be their own uid)
       allow create: if isVerifiedUser()
@@ -109,8 +109,8 @@ service cloud.firestore {
 
     // ── Teams collection ────────────────────────────────────────────────────
     match /teams/{teamId} {
-      // Any verified user can read teams
-      allow read: if isVerifiedUser();
+      // Any authenticated user can read teams
+      allow read: if isAuth();
 
       // Only tournament admins can create teams
       // The team must reference a valid tournament
@@ -134,8 +134,8 @@ service cloud.firestore {
 
     // ── Players collection ───────────────────────────────────────────────────
     match /players/{playerId} {
-      // Any verified user can read players
-      allow read: if isVerifiedUser();
+      // Any authenticated user can read players
+      allow read: if isAuth();
 
       // Only tournament admins can create players
       // Player must reference a teamId whose team belongs to a tournament the user admins
@@ -254,7 +254,7 @@ service cloud.firestore {
 
     // ── Leaderboard collection ───────────────────────────────────────────────
     match /leaderboards/{leaderboardId} {
-      allow read: if isVerifiedUser();
+      allow read: if isAuth();
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
@@ -263,7 +263,7 @@ service cloud.firestore {
 
     // ── Points Table collection ──────────────────────────────────────────────
     match /pointsTable/{tableId} {
-      allow read: if isVerifiedUser();
+      allow read: if isAuth();
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
@@ -272,7 +272,7 @@ service cloud.firestore {
 
     // ── Player Stats collection ──────────────────────────────────────────────
     match /playerStats/{statId} {
-      allow read: if isVerifiedUser();
+      allow read: if isAuth();
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
@@ -281,7 +281,7 @@ service cloud.firestore {
 
     // ── Team Stats collection ────────────────────────────────────────────────
     match /teamStats/{statId} {
-      allow read: if isVerifiedUser();
+      allow read: if isAuth();
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
@@ -302,7 +302,7 @@ service cloud.firestore {
 
     // ── Recent Matches collection ────────────────────────────────────────────
     match /recentMatches/{matchId} {
-      allow read: if isVerifiedUser();
+      allow read: if isAuth();
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()

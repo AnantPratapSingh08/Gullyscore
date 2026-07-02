@@ -18,7 +18,10 @@ import {
   addPlayer,
   removePlayer,
   regenerateInviteCode,
+  setTeamCaptain,
 } from '../../services/teamService'
+import { uploadTeamLogo } from '../../services/imageService'
+import { ImageUpload } from '../../components/common/ImageUpload'
 import type { Player } from '../../types/team'
 import '../../styles/teams.css'
 
@@ -232,7 +235,16 @@ export default function TeamDetailPage() {
 
         {/* Team hero */}
         <div className="team-detail-hero">
-          <div className="team-detail-logo">{team.logo}</div>
+          <ImageUpload
+            currentUrl={team.logoUrl}
+            defaultEmoji={team.logo}
+            onUpload={async (file) => {
+              await uploadTeamLogo(team.id, file)
+              showToast('Logo updated!', 'success')
+            }}
+            disabled={!isOwner}
+            size={72}
+          />
           <div className="team-detail-info">
             <div className="team-detail-name-row">
               <h1 className="team-detail-name">{team.teamName}</h1>
@@ -399,52 +411,78 @@ export default function TeamDetailPage() {
             </div>
           ) : (
             <div className="player-list">
-              {players.map(player => (
-                <div key={player.id} className="player-row">
-                  <div className="player-avatar" style={{ background: ROLE_COLORS[player.role] }}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="player-info">
-                    <span className="player-name">{player.name}</span>
-                    <span
-                      className="player-role-badge"
-                      style={{
-                        background: ROLE_COLORS[player.role],
-                        color: ROLE_TEXT[player.role],
-                        border: `1px solid ${ROLE_TEXT[player.role]}40`,
-                      }}
-                    >
-                      {player.role}
-                    </span>
-                  </div>
-                  <div className="player-stats">
-                    <div className="player-stat">
-                      <span className="player-stat-v">{player.stats.matches}</span>
-                      <span className="player-stat-l">M</span>
+              {players.map(player => {
+                const isCaptain = team.captainId === player.id || team.captain === player.name
+                return (
+                  <div key={player.id} className="player-row" style={{ borderLeft: isCaptain ? '2px solid #f59e0b' : undefined }}>
+                    <div className="player-avatar" style={{ background: ROLE_COLORS[player.role] }}>
+                      {player.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className="player-stat">
-                      <span className="player-stat-v">{player.stats.runs}</span>
-                      <span className="player-stat-l">R</span>
+                    <div className="player-info">
+                      <span className="player-name">
+                        {player.name}
+                        {isCaptain && <span style={{ marginLeft: 6, fontSize: 12, color: '#f59e0b' }}>👑 Captain</span>}
+                      </span>
+                      <span
+                        className="player-role-badge"
+                        style={{
+                          background: ROLE_COLORS[player.role],
+                          color: ROLE_TEXT[player.role],
+                          border: `1px solid ${ROLE_TEXT[player.role]}40`,
+                        }}
+                      >
+                        {player.role}
+                      </span>
                     </div>
-                    <div className="player-stat">
-                      <span className="player-stat-v">{player.stats.wickets}</span>
-                      <span className="player-stat-l">W</span>
+                    <div className="player-stats">
+                      <div className="player-stat">
+                        <span className="player-stat-v">{player.stats.matches}</span>
+                        <span className="player-stat-l">M</span>
+                      </div>
+                      <div className="player-stat">
+                        <span className="player-stat-v">{player.stats.runs}</span>
+                        <span className="player-stat-l">R</span>
+                      </div>
+                      <div className="player-stat">
+                        <span className="player-stat-v">{player.stats.wickets}</span>
+                        <span className="player-stat-l">W</span>
+                      </div>
                     </div>
+                    {isOwner && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {!isCaptain && (
+                          <button
+                            id={`set-captain-${player.id}`}
+                            className="team-btn team-btn--ghost team-btn--sm"
+                            style={{ padding: '4px 8px', fontSize: 11 }}
+                            title={`Set ${player.name} as Captain`}
+                            onClick={async () => {
+                              try {
+                                await setTeamCaptain(team.id, player.id, player.name)
+                                showToast(`${player.name} is now Captain! 👑`, 'success')
+                              } catch {
+                                showToast('Failed to set captain.', 'error')
+                              }
+                            }}
+                          >
+                            👑
+                          </button>
+                        )}
+                        <button
+                          id={`remove-player-${player.id}`}
+                          className="player-remove-btn"
+                          onClick={() => setRemovingPlayer(player)}
+                          title={`Remove ${player.name}`}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {isOwner && (
-                    <button
-                      id={`remove-player-${player.id}`}
-                      className="player-remove-btn"
-                      onClick={() => setRemovingPlayer(player)}
-                      title={`Remove ${player.name}`}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

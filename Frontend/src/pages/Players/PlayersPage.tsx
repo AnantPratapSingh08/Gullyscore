@@ -27,6 +27,8 @@ import {
   createPlayer,
   deletePlayer,
 } from '../../services/playerService'
+import { uploadPlayerAvatar } from '../../services/imageService'
+import { ImageUpload } from '../../components/common/ImageUpload'
 import type { Player, PlayerRole } from '../../types/player'
 import { emptyBattingStats, emptyBowlingStats, emptyFieldingStats } from '../../types/player'
 import '../../styles/teams.css'
@@ -84,10 +86,24 @@ function PlayerCard({ player, canManageTeams, onDelete }: PlayerCardProps) {
   return (
     <div className="player-card" style={{ '--player-accent': color } as React.CSSProperties}>
       {/* Avatar */}
-      <div className="player-card-avatar" style={{ background: `linear-gradient(135deg, ${color}33, ${color}11)`, border: `1.5px solid ${color}44` }}>
-        <span className="player-card-initials" style={{ color }}>{initials}</span>
+      <div style={{ position: 'relative', flexShrink: 0, paddingRight: 8 }}>
+        <ImageUpload
+          currentUrl={player.avatarUrl}
+          defaultEmoji={initials}
+          onUpload={async (file) => {
+            await uploadPlayerAvatar(player.id, file)
+            // Reload page or rely on parent refetch (we'll let the user reload or we could callback)
+          }}
+          disabled={!canManageTeams}
+          size={52}
+        />
         {player.jerseyNumber > 0 && (
-          <span className="player-card-jersey" style={{ color }}>#{player.jerseyNumber}</span>
+          <span className="player-card-jersey" style={{ 
+            color, position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', 
+            background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: 10, fontSize: 10 
+          }}>
+            #{player.jerseyNumber}
+          </span>
         )}
       </div>
 

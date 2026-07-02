@@ -27,10 +27,12 @@ export interface PointsTableEntry {
   teamLogo: string
   played:   number
   won:      number
-  lost:     number
+  lost:      number
   tied:     number
+  nr:       number   // No Result
   nrr:      number   // Net Run Rate
   points:   number
+  form?:    ('W' | 'L' | 'T' | 'NR')[] // Last 5 matches form (W = Won, L = Lost, T = Tied, NR = No Result)
 }
 
 // ── Tournament Awards ─────────────────────────────────────────────────────────

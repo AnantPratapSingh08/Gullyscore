@@ -712,17 +712,40 @@ export default function LiveScorePage() {
           Match Detail
         </button>
 
-        {/* Match not started yet — owner sees setup */}
-        {match.status === 'upcoming' && isOwner && (
-          <SetupPanel
-            players1={players1}
-            players2={players2}
-            onStart={handleSetup}
-          />
+        {/* Match not started yet (or live but state not initialized) — owner sees setup */}
+        {((match.status === 'upcoming' || match.status === 'live') && !liveState) && isOwner && (
+          <div>
+            {match.tossWinnerId && match.tossDecision ? (
+              <div style={{ marginBottom: 16, padding: '12px 18px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, fontSize: 13 }}>
+                <span style={{ color: '#f59e0b', fontWeight: 700 }}>🪙 Toss Result: </span>
+                <span style={{ color: '#e2e8f0' }}>
+                  {match.tossWinnerId === match.team1Id ? match.team1Name : match.team2Name} won toss — elected to {match.tossDecision}.
+                </span>
+                <span style={{ color: '#64748b', marginLeft: 8 }}>
+                  ({match.tossDecision === 'bat'
+                    ? `${match.tossWinnerId === match.team1Id ? match.team1Name : match.team2Name} bats first`
+                    : `${match.tossWinnerId === match.team1Id ? match.team2Name : match.team1Name} bats first`})
+                </span>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 16, padding: '12px 18px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, fontSize: 13, color: '#f87171' }}>
+                ⚠️ Toss not recorded. Go back to Match Detail to do toss first.
+              </div>
+            )}
+            <SetupPanel
+              players1={match.tossDecision === 'field'
+                ? (match.tossWinnerId === match.team1Id ? players2 : players1)
+                : (match.tossWinnerId === match.team1Id ? players1 : players2)}
+              players2={match.tossDecision === 'field'
+                ? (match.tossWinnerId === match.team1Id ? players1 : players2)
+                : (match.tossWinnerId === match.team1Id ? players2 : players1)}
+              onStart={handleSetup}
+            />
+          </div>
         )}
 
-        {/* Match not started — spectator */}
-        {match.status === 'upcoming' && !isOwner && (
+        {/* Match not started (or live but state not initialized) — spectator */}
+        {((match.status === 'upcoming' || match.status === 'live') && !liveState) && !isOwner && (
           <div className="live-spectator-note">
             ⏳ This match hasn't started yet. Check back soon!
           </div>

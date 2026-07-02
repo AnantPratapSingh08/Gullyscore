@@ -330,6 +330,22 @@ export function AppShell({ children }: AppShellProps) {
       <main className="shell-content">
         {children}
       </main>
+
+      {/* ── Mobile Bottom Nav Bar ────────────────────────────────────────── */}
+      {user && (
+        <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+          {navLinks.map(link => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => `mobile-bottom-nav-item${isActive ? ' mobile-bottom-nav-item--active' : ''}`}
+            >
+              <span className="mobile-bottom-nav-icon">{link.icon}</span>
+              <span className="mobile-bottom-nav-label">{link.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
     </div>
   )
 }

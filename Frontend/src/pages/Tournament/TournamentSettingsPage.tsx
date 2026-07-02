@@ -18,6 +18,8 @@ import {
 import { assertTournamentAdmin, adminActionBlockReason, isTournamentAdmin } from '../../utils/tournamentGuard'
 import { subscribeToTeamsByTournament } from '../../services/teamService'
 import { subscribeToMatchesByTournament } from '../../services/matchService'
+import { uploadTournamentLogo } from '../../services/imageService'
+import { ImageUpload } from '../../components/common/ImageUpload'
 import { useAuth } from '../../context/AuthContext'
 import { useActiveTournament } from '../../context/ActiveTournamentContext'
 import type { Tournament, TournamentFormat, TournamentStatus } from '../../types/tournament'
@@ -413,7 +415,16 @@ function TournamentSettingsInner() {
               <div className="match-detail-header">
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <span style={{ fontSize: 32 }}>{tournament.logo}</span>
+                    <ImageUpload
+                      currentUrl={tournament.logo.startsWith('http') || tournament.logo.startsWith('data:') ? tournament.logo : undefined}
+                      defaultEmoji={tournament.logo.startsWith('http') || tournament.logo.startsWith('data:') ? '🏆' : tournament.logo}
+                      onUpload={async (file) => {
+                        await uploadTournamentLogo(tournament.id, file)
+                        showToast('Tournament logo updated!', 'success')
+                      }}
+                      disabled={!isAdmin}
+                      size={60}
+                    />
                     <h1 style={{ fontSize: 'clamp(18px,3vw,24px)', fontWeight: 900, color: '#f1f5f9', margin: 0 }}>
                       {tournament.name}
                     </h1>

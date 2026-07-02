@@ -9,6 +9,7 @@ import {
   type PlayerRankEntry,
   type TeamRankEntry,
 } from '../../services/leaderboardService'
+import { exportPlayerStatsPDF } from '../../services/pdfService'
 import '../../styles/teams.css'
 import '../../styles/leaderboard.css'
 
@@ -68,58 +69,82 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   )
 }
 
-// ── Podium (top 3) ────────────────────────────────────────────────────────────
-function Podium({ entries, cat }: { entries: PlayerRankEntry[]; cat: Category }) {
-  const top3 = entries.slice(0, 3)
-  if (top3.length === 0) return null
+// ── Player Stats Table ────────────────────────────────────────────────────────
+function PlayerStatsTable({ entries, cat }: { entries: PlayerRankEntry[]; cat: Category }) {
+  if (entries.length === 0) return null
 
-  // Display order: 2nd, 1st, 3rd
-  const order = [top3[1], top3[0], top3[2]].filter(Boolean)
+  const isBowling = cat.key === 'wickets' || cat.key === 'economy'
 
   return (
-    <div className="lb-podium">
-      {order.map((e) => (
-        <div key={e.playerId} className={`lb-podium-card lb-podium-card--${e.rank}`}>
-          <div className="lb-podium-badge">{e.badge}</div>
-          <Avatar name={e.playerName} size={e.rank === 1 ? 60 : 48} />
-          <div className="lb-podium-name">{e.playerName}</div>
-          <div className="lb-podium-team">{e.teamName}</div>
-          <div className={`lb-podium-value ${cat.colorCls}`}>
-            {cat.key === 'strikeRate' || cat.key === 'economy' ? e.value.toFixed(2) : e.value}
-          </div>
-          <div className="lb-podium-label">{cat.valueLabel}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Player ranked rows (4th onwards) ─────────────────────────────────────────
-function PlayerRows({ entries, cat }: { entries: PlayerRankEntry[]; cat: Category }) {
-  const rest = entries.slice(3)
-  if (rest.length === 0) return null
-
-  return (
-    <div className="lb-list">
-      {rest.map(e => (
-        <div key={e.playerId} className={`lb-row${e.rank <= 3 ? ' lb-row--top' : ''}`}>
-          <div className={`lb-rank${e.rank <= 3 ? ` lb-rank--${e.rank}` : ''}`}>
-            {e.badge ?? e.rank}
-          </div>
-          <div className="lb-player-info">
-            <div className="lb-player-name">{e.playerName}</div>
-            <div className="lb-player-team">{e.teamName}</div>
-          </div>
-          <div className="lb-value-col">
-            <span className={`lb-value ${cat.colorCls}`}>
-              {cat.key === 'strikeRate' || cat.key === 'economy' ? e.value.toFixed(2) : e.value}
-            </span>
-            {e.secondary !== undefined && (
-              <span className="lb-value-sub">{e.secondary} {cat.subLabel.toLowerCase()}</span>
+    <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid rgba(31, 41, 55, 0.05)' }}>
+      <table className="dash-table" style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ background: 'rgba(31, 41, 55, 0.02)', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
+            <th style={{ padding: '12px 14px', textAlign: 'left', width: 60 }}>Rank</th>
+            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Player</th>
+            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Team</th>
+            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Mat</th>
+            {!isBowling ? (
+              <>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Runs</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Avg</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>SR</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>4s</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>6s</th>
+              </>
+            ) : (
+              <>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Wkts</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Eco</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Avg</th>
+              </>
             )}
-          </div>
-        </div>
-      ))}
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e, i) => {
+            const rowBg = i % 2 === 0 ? 'rgba(31, 41, 55, 0.02)' : 'transparent'
+            return (
+              <tr 
+                key={e.playerId} 
+                style={{ 
+                  background: rowBg,
+                  borderBottom: '1px solid rgba(31, 41, 55, 0.05)',
+                  transition: 'background 0.2s'
+                }}
+              >
+                <td style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700 }}>
+                  {e.rank <= 3 ? ['🥇','🥈','🥉'][e.rank - 1] : `#${e.rank}`}
+                </td>
+                <td style={{ padding: '12px 14px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Avatar name={e.playerName} size={32} />
+                    <span style={{ color: '#1f2937', fontWeight: 600 }}>{e.playerName}</span>
+                  </div>
+                </td>
+                <td style={{ padding: '12px 14px', textAlign: 'left', color: '#64748b' }}>{e.teamName}</td>
+                <td style={{ padding: '12px 14px', textAlign: 'center', color: '#64748b' }}>{e.matches}</td>
+                
+                {!isBowling ? (
+                  <>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: cat.key === 'runs' ? '#10b981' : '#1f2937' }}>{e.runs}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#64748b' }}>{e.average.toFixed(2)}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: cat.key === 'strikeRate' ? '#10b981' : '#64748b' }}>{e.strikeRate.toFixed(2)}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: cat.key === 'fours' ? '#10b981' : '#64748b' }}>{e.fours}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: cat.key === 'sixes' ? '#10b981' : '#64748b' }}>{e.sixes}</td>
+                  </>
+                ) : (
+                  <>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: cat.key === 'wickets' ? '#10b981' : '#1f2937' }}>{e.wickets}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: cat.key === 'economy' ? '#10b981' : '#64748b' }}>{e.economy.toFixed(2)}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#64748b' }}>{e.average.toFixed(2)}</td>
+                  </>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -134,7 +159,7 @@ function TeamRows({ entries }: { entries: TeamRankEntry[] }) {
         <span>#</span>
         <span>Team</span>
         <span>Runs</span>
-        <span>Players</span>
+        <span>Matches</span>
       </div>
       <div className="lb-list">
         {entries.map(t => (
@@ -217,10 +242,7 @@ function LbSection({
         <span className="lb-section-desc">{descMap[cat.key]}</span>
       </div>
       {entries.length > 0 ? (
-        <>
-          <Podium entries={entries} cat={cat} />
-          <PlayerRows entries={entries} cat={cat} />
-        </>
+        <PlayerStatsTable entries={entries} cat={cat} />
       ) : (
         <EmptyState label={cat.label.toLowerCase()} />
       )}
@@ -236,19 +258,39 @@ export default function LeaderboardPage() {
   const [data,    setData]    = useState<LeaderboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const tournamentId = activeTournament?.id
   const teamIds = activeTournament?.teamIds ?? []
 
   useEffect(() => {
     setLoading(true)
-    const unsub = subscribeToTournamentLeaderboard(teamIds, lb => {
+    const unsub = subscribeToTournamentLeaderboard(tournamentId, teamIds, lb => {
       setData(lb)
       setLoading(false)
     })
     return unsub
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(teamIds)])
+  }, [tournamentId, JSON.stringify(teamIds)])
 
   const activeCat = CATEGORIES.find(c => c.key === activeKey)!
+
+  const handleExportStats = () => {
+    if (!data || !activeTournament) return
+    const map = new Map<string, any>()
+    const getPlayer = (id: string, name: string, team: string) => {
+      if (!map.has(id)) map.set(id, { name, team, role: 'Player', matches: 0, runs: 0, hs: '-', avg: '-', sr: '-', fours: 0, sixes: 0, wickets: 0, economy: '-', catches: 0 })
+      return map.get(id)
+    }
+    
+    data.topRunScorers.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.runs = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
+    data.topWicketTakers.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.wickets = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
+    data.mostSixes.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sixes = e.value })
+    data.mostFours.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.fours = e.value })
+    data.bestStrikeRate.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sr = e.value.toFixed(2) })
+    data.bestEconomy.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.economy = e.value.toFixed(2) })
+    ;(data.mostCatches || []).forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.catches = e.value })
+    
+    exportPlayerStatsPDF(activeTournament.name, activeTournament.logo, Array.from(map.values()))
+  }
 
   return (
     <AppShell>
@@ -257,18 +299,25 @@ export default function LeaderboardPage() {
 
         {/* Header */}
         <div className="lb-header">
-          <div className="lb-title-block">
-            <h1 className="lb-title">
-              <span className="lb-title-icon">🏆</span>
-              Leaderboard
-              {activeTournament && <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', marginLeft: 8 }}>· {activeTournament.name}</span>}
-            </h1>
-            <p className="lb-subtitle">Real-time rankings for this tournament</p>
+          <div className="lb-title-block" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <div>
+              <h1 className="lb-title">
+                <span className="lb-title-icon">🏆</span>
+                Leaderboard
+                {activeTournament && <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b', marginLeft: 8 }}>· {activeTournament.name}</span>}
+              </h1>
+              <p className="lb-subtitle">Real-time rankings for this tournament</p>
+              {data && (
+                <div className="lb-updated">
+                  <span className="lb-updated-dot" />
+                  Updated {data.lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
             {data && (
-              <div className="lb-updated">
-                <span className="lb-updated-dot" />
-                Updated {data.lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              <button className="team-btn team-btn--outline team-btn--sm" onClick={handleExportStats}>
+                📄 Download Stats PDF
+              </button>
             )}
           </div>
         </div>
