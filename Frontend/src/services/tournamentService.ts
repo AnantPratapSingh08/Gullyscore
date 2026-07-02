@@ -8,12 +8,13 @@ import {
   query, where, orderBy, serverTimestamp,
   arrayUnion, arrayRemove, onSnapshot, type Unsubscribe,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
+import { assertTournamentAdmin } from '../utils/tournamentGuard'
 import type {
   Tournament, TournamentCreatePayload, TournamentUpdatePayload,
   TournamentAwards, PointsTableEntry,
 } from '../types/tournament'
-import { getCompletedMatchesByTournament } from './matchService'
+import { getFinishedMatchesByTournament } from './matchService'
 
 const TOURNAMENTS = 'tournaments'
 
@@ -107,6 +108,8 @@ export async function getMyTournaments(uid: string): Promise<Tournament[]> {
 // ── Update ────────────────────────────────────────────────────────────────────
 
 export async function updateTournament(id: string, updates: TournamentUpdatePayload): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, id), {
     ...(updates as Record<string, unknown>),
     updatedAt: serverTimestamp(),
@@ -114,48 +117,66 @@ export async function updateTournament(id: string, updates: TournamentUpdatePayl
 }
 
 export async function setTournamentStatus(id: string, status: Tournament['status']): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, id), { status, updatedAt: serverTimestamp() })
 }
 
 export async function addTeamToTournament(tournamentId: string, teamId: string): Promise<void> {
+  const t = await getTournament(tournamentId)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, tournamentId), {
     teamIds: arrayUnion(teamId), updatedAt: serverTimestamp(),
   })
 }
 
 export async function removeTeamFromTournament(tournamentId: string, teamId: string): Promise<void> {
+  const t = await getTournament(tournamentId)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, tournamentId), {
     teamIds: arrayRemove(teamId), updatedAt: serverTimestamp(),
   })
 }
 
 export async function addMatchToTournament(tournamentId: string, matchId: string): Promise<void> {
+  const t = await getTournament(tournamentId)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, tournamentId), {
     matchIds: arrayUnion(matchId), updatedAt: serverTimestamp(),
   })
 }
 
 export async function removeMatchFromTournament(tournamentId: string, matchId: string): Promise<void> {
+  const t = await getTournament(tournamentId)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, tournamentId), {
     matchIds: arrayRemove(matchId), updatedAt: serverTimestamp(),
   })
 }
 
 export async function declareTournamentWinner(id: string, winnerId: string): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, id), {
     winnerId, status: 'completed', updatedAt: serverTimestamp(),
   })
 }
 
 export async function updatePointsTable(id: string, pointsTable: PointsTableEntry[]): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, id), { pointsTable, updatedAt: serverTimestamp() })
 }
 
 export async function updateTournamentAwards(id: string, awards: TournamentAwards): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await updateDoc(doc(db, TOURNAMENTS, id), { awards, updatedAt: serverTimestamp() })
 }
 
 export async function deleteTournament(id: string): Promise<void> {
+  const t = await getTournament(id)
+  if (t) assertTournamentAdmin(t, auth.currentUser?.uid)
   await deleteDoc(doc(db, TOURNAMENTS, id))
 }
 
@@ -214,11 +235,11 @@ export function subscribeToMyTournaments(
  * Call this after every match completes. It is idempotent.
  *
  * NRR = (Total runs scored / Total overs faced) - (Total runs conceded / Total overs bowled)
- */
+  */
 export async function autoUpdatePointsTable(tournamentId: string): Promise<void> {
   const [tournSnap, matches] = await Promise.all([
     getDoc(doc(db, TOURNAMENTS, tournamentId)),
-    getCompletedMatchesByTournament(tournamentId),
+    getFinishedMatchesByTournament(tournamentId),
   ])
 
   if (!tournSnap.exists()) return
@@ -227,7 +248,29 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
   // Gather all team IDs participating in this tournament
   const allTeamIds = new Set<string>(tournament.teamIds)
 
-  // Accumulate per-team stats from completed matches
+  // Fetch all team details to ensure correct names & logos are displayed even if they haven't played yet
+  const teamDocs = await Promise.all(
+    Array.from(allTeamIds).map(id => getDoc(doc(db, 'teams', id)))
+  )
+  const teamDetailsMap = new Map<string, { name: string, logo: string }>()
+  teamDocs.forEach(d => {
+    if (d.exists()) {
+      const data = d.data()
+      teamDetailsMap.set(d.id, {
+        name: data.teamName || '',
+        logo: data.logo || '🏏'
+      })
+    }
+  })
+
+  // Sort matches chronologically to calculate form correctly
+  const sortedMatches = [...matches].sort((a, b) => {
+    const timeA = new Date(a.scheduledAt || (a.createdAt as any)?.toDate?.() || 0).getTime()
+    const timeB = new Date(b.scheduledAt || (b.createdAt as any)?.toDate?.() || 0).getTime()
+    return timeA - timeB
+  })
+
+  // Accumulate per-team stats
   interface TeamAcc {
     teamId:     string
     teamName:   string
@@ -236,24 +279,29 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
     won:        number
     lost:       number
     tied:       number
-    // For NRR: total runs scored, total overs faced (as decimal balls/6)
+    nr:         number // No result / abandoned
     runsScored:   number
-    oversPlayed:  number  // balls faced / 6 (float)
+    oversPlayed:  number
     runsConceded: number
-    oversBowled:  number  // balls bowled / 6 (float)
+    oversBowled:  number
     points: number
+    formList: ('W' | 'L' | 'T' | 'NR')[]
   }
 
   const acc = new Map<string, TeamAcc>()
 
-  const getOrCreate = (teamId: string, teamName: string, teamLogo: string): TeamAcc => {
+  const getOrCreate = (teamId: string): TeamAcc => {
     if (!acc.has(teamId)) {
+      const details = teamDetailsMap.get(teamId)
       acc.set(teamId, {
-        teamId, teamName, teamLogo,
-        played: 0, won: 0, lost: 0, tied: 0,
+        teamId,
+        teamName:   details?.name || 'Team',
+        teamLogo:   details?.logo || '🏏',
+        played: 0, won: 0, lost: 0, tied: 0, nr: 0,
         runsScored: 0, oversPlayed: 0,
         runsConceded: 0, oversBowled: 0,
         points: 0,
+        formList: [],
       })
     }
     return acc.get(teamId)!
@@ -262,25 +310,34 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
   // Helper: overs decimal (e.g. 18.3) → actual balls for NRR
   const oversToFloat = (ov: number): number => {
     const full = Math.floor(ov)
-    const partial = (ov - full) * 10  // e.g. 18.3 → 0.3 * 10 = 3 balls
-    return full + partial / 6          // convert partial balls to fraction of an over
+    const partial = (ov - full) * 10
+    return full + partial / 6
   }
 
-  for (const match of matches) {
-    if (match.status !== 'completed') continue
-
-    const t1 = getOrCreate(match.team1Id, match.team1Name, match.team1Logo)
-    const t2 = getOrCreate(match.team2Id, match.team2Name, match.team2Logo)
+  for (const match of sortedMatches) {
+    const t1 = getOrCreate(match.team1Id)
+    const t2 = getOrCreate(match.team2Id)
 
     t1.played++
     t2.played++
+
+    if (match.status === 'abandoned' || match.result === 'no_result') {
+      // Abandoned or no result match: both get 1 point, no NRR changes
+      t1.nr++
+      t2.nr++
+      t1.points += 1
+      t2.points += 1
+      t1.formList.push('NR')
+      t2.formList.push('NR')
+      continue
+    }
 
     // Runs and overs for NRR
     const t1Overs = oversToFloat(match.team1Overs)
     const t2Overs = oversToFloat(match.team2Overs)
 
     t1.runsScored   += match.team1Score
-    t1.oversPlayed  += t1Overs > 0 ? t1Overs : match.totalOvers  // if 0, full overs (all out)
+    t1.oversPlayed  += t1Overs > 0 ? t1Overs : match.totalOvers
     t1.runsConceded += match.team2Score
     t1.oversBowled  += t2Overs > 0 ? t2Overs : match.totalOvers
 
@@ -293,29 +350,39 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
     if (match.result === 'team1') {
       t1.won++; t1.points += 2
       t2.lost++
+      t1.formList.push('W')
+      t2.formList.push('L')
     } else if (match.result === 'team2') {
       t2.won++; t2.points += 2
       t1.lost++
+      t2.formList.push('W')
+      t1.formList.push('L')
     } else if (match.result === 'tie') {
       t1.tied++; t1.points += 1
       t2.tied++; t2.points += 1
+      t1.formList.push('T')
+      t2.formList.push('T')
     }
   }
 
   // Add teams that haven't played yet (0 stats)
   allTeamIds.forEach(id => {
     if (!acc.has(id)) {
+      const details = teamDetailsMap.get(id)
       acc.set(id, {
-        teamId: id, teamName: '', teamLogo: '🏏',
-        played: 0, won: 0, lost: 0, tied: 0,
+        teamId: id,
+        teamName: details?.name || 'Team',
+        teamLogo: details?.logo || '🏏',
+        played: 0, won: 0, lost: 0, tied: 0, nr: 0,
         runsScored: 0, oversPlayed: 0,
         runsConceded: 0, oversBowled: 0,
         points: 0,
+        formList: [],
       })
     }
   })
 
-  // Build points table with NRR
+  // Build points table with NRR and Form (last 5 matches)
   const pointsTable: PointsTableEntry[] = Array.from(acc.values()).map(t => {
     const rrFor     = t.oversPlayed  > 0 ? t.runsScored   / t.oversPlayed  : 0
     const rrAgainst = t.oversBowled  > 0 ? t.runsConceded / t.oversBowled  : 0
@@ -328,8 +395,11 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
       won:      t.won,
       lost:     t.lost,
       tied:     t.tied,
+      nr:       t.nr,
       nrr,
       points:   t.points,
+      // Store the last 5 matches form (newest matches at the right side of the list)
+      form:     t.formList.slice(-5),
     }
   })
 
@@ -343,4 +413,3 @@ export async function autoUpdatePointsTable(tournamentId: string): Promise<void>
 
   console.log('[tournament] autoUpdatePointsTable ✓ —', pointsTable.length, 'teams')
 }
-

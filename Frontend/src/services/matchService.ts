@@ -19,7 +19,25 @@ import {
   onSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
+import { assertTournamentAdmin } from '../utils/tournamentGuard'
+
+async function assertAdminForTournament(tournamentId: string): Promise<void> {
+  if (!tournamentId) return
+  const user = auth.currentUser
+  if (!user) throw new Error('Unauthenticated')
+  const snap = await getDoc(doc(db, 'tournaments', tournamentId))
+  if (snap.exists()) {
+    assertTournamentAdmin({ adminId: snap.data().adminId, name: snap.data().name }, user.uid)
+  }
+}
+
+async function assertAdminForMatchDoc(matchId: string): Promise<void> {
+  const snap = await getDoc(doc(db, 'matches', matchId))
+  if (snap.exists() && snap.data().tournamentId) {
+    await assertAdminForTournament(snap.data().tournamentId)
+  }
+}
 import type {
   Match,
   MatchCreatePayload,
@@ -77,6 +95,7 @@ function docToMatch(id: string, data: Record<string, unknown>): Match {
 export async function createMatch(
   payload: Omit<MatchCreatePayload, 'createdAt'>
 ): Promise<string> {
+  if (payload.tournamentId) await assertAdminForTournament(payload.tournamentId)
   const ref = await addDoc(collection(db, MATCHES), {
     ...payload,
     tournamentId:  payload.tournamentId ?? '',
@@ -149,11 +168,13 @@ export async function updateMatch(
   matchId: string,
   updates: MatchUpdatePayload
 ): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), updates as Record<string, unknown>)
 }
 
 /** Convenience: start a match (status → 'live'). */
 export async function startMatch(matchId: string): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), { status: 'live' })
 }
 
@@ -164,6 +185,7 @@ export async function completeMatch(
   resultSummary: string,
   playerOfMatch?: string
 ): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), {
     status: 'completed',
     result,
@@ -180,6 +202,7 @@ export async function updateScore(
   wickets: number,
   overs: number
 ): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   const prefix = team === 1 ? 'team1' : 'team2'
   await updateDoc(doc(db, MATCHES, matchId), {
     [`${prefix}Score`]:   score,
@@ -198,6 +221,7 @@ export async function updateScore(
  * so all leaderboards update immediately without a manual refresh.
  */
 export async function deleteMatch(matchId: string): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   // Fetch the match first so we know its tournament and completion status
   const matchSnap = await getDoc(doc(db, MATCHES, matchId))
   const matchData = matchSnap.exists() ? matchSnap.data() as Record<string, unknown> : null
@@ -315,10 +339,24 @@ export async function getCompletedMatchesByTournament(tournamentId: string): Pro
   return snap.docs.map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
 }
 
+/** Get all finished/abandoned/completed matches for a tournament. */
+export async function getFinishedMatchesByTournament(tournamentId: string): Promise<Match[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, MATCHES),
+      where('tournamentId', '==', tournamentId)
+    )
+  )
+  return snap.docs
+    .map(d => docToMatch(d.id, d.data() as Record<string, unknown>))
+    .filter(m => m.status === 'completed' || m.status === 'abandoned')
+}
+
 // ── Match Engine Lifecycle ────────────────────────────────────────────────────
 
 /** Mark a match as abandoned (before or during play, no result). Triggers recalculation if it was completed. */
 export async function abandonMatch(matchId: string, reason = 'Match abandoned'): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   const matchSnap = await getDoc(doc(db, MATCHES, matchId))
   const prevStatus = matchSnap.exists() ? (matchSnap.data().status as string) : ''
   const tournamentId = matchSnap.exists() ? (matchSnap.data().tournamentId as string) ?? '' : ''
@@ -348,6 +386,7 @@ export async function abandonMatch(matchId: string, reason = 'Match abandoned'):
 
 /** Mark a match as No Result (DLS, rain, etc.). */
 export async function markNoResult(matchId: string, reason = 'No result — match abandoned due to weather'): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), {
     status: 'no_result',
     resultSummary: reason,
@@ -357,11 +396,13 @@ export async function markNoResult(matchId: string, reason = 'No result — matc
 
 /** Mark a match as rain-delayed (resumes later). */
 export async function markRainDelay(matchId: string): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), { status: 'rain_delay' })
 }
 
 /** Resume a rain-delayed or paused match back to live. */
 export async function resumeMatch(matchId: string): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), { status: 'live' })
 }
 
@@ -371,6 +412,7 @@ export async function resumeMatch(matchId: string): Promise<void> {
  * Returns the new match ID.
  */
 export async function cloneMatch(matchId: string, newScheduledAt?: string): Promise<string> {
+  await assertAdminForMatchDoc(matchId)
   const original = await getMatch(matchId)
   if (!original) throw new Error(`cloneMatch: match ${matchId} not found`)
 
@@ -409,6 +451,7 @@ export async function setMatchPlayingXI(
   team1PlayingXI: string[],
   team2PlayingXI: string[],
 ): Promise<void> {
+  await assertAdminForMatchDoc(matchId)
   await updateDoc(doc(db, MATCHES, matchId), { team1PlayingXI, team2PlayingXI })
 }
 

@@ -77,7 +77,10 @@ service cloud.firestore {
 
       // Tournament roles subcollection
       match /tournamentRoles/{tournamentId} {
-        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.uid == userId;
+        allow write: if isAuth() && (
+          isTournamentAdmin(tournamentId) || isSuperAdmin()
+        );
       }
     }
 
@@ -90,7 +93,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && request.resource.data.adminId == request.auth.uid;
 
-      // Only the tournament admin can update or delete
+      // Only the tournament admin or super admin can update
       allow update: if isVerifiedUser()
         && (
           resource.data.adminId == request.auth.uid
@@ -155,17 +158,23 @@ service cloud.firestore {
       // PUBLIC: anyone can read matches (for shareable scorecard links)
       allow read: if true;
 
-      // Only tournament admins can create matches
+      // Only tournament admins can create tournament matches, anyone can create standalone matches
       allow create: if isVerifiedUser()
         && request.resource.data.keys().hasAll(['tournamentId'])
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && (
+          request.resource.data.tournamentId == ''
+          || isTournamentAdmin(request.resource.data.tournamentId)
+        );
 
-      // Only tournament admins can update/delete matches
-      allow update: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
-
-      allow delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+      // Only tournament admins or the match creator can update/delete matches
+      allow update, delete: if isVerifiedUser()
+        && (
+          resource.data.createdBy == request.auth.uid
+          || (
+            resource.data.tournamentId != ''
+            && isTournamentAdmin(resource.data.tournamentId)
+          )
+        );
     }
 
     // ── Live Game States collection ──────────────────────────────────────────
@@ -174,19 +183,37 @@ service cloud.firestore {
       // PUBLIC: anyone can read live scores (spectators, public scorecard)
       allow read: if true;
 
-      // Only tournament admins or scorers can create the initial live state
+      // Only tournament admins, scorers, or the match creator can create the initial live state
       allow create: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && (
+          get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+          || (
+            request.resource.data.tournamentId != ''
+            && isTournamentAdmin(request.resource.data.tournamentId)
+          )
+        );
 
-      // Tournament admin or scorer can update the live state
+      // Tournament admin, scorer, or match creator can update the live state
       allow update: if isVerifiedUser()
         && (
-          isTournamentAdmin(resource.data.tournamentId)
-          || isScorer(resource.data.tournamentId)
+          get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+          || (
+            resource.data.tournamentId != ''
+            && (
+              isTournamentAdmin(resource.data.tournamentId)
+              || isScorer(resource.data.tournamentId)
+            )
+          )
         );
 
       allow delete: if isVerifiedUser()
-        && isTournamentAdmin(resource.data.tournamentId);
+        && (
+          get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+          || (
+            resource.data.tournamentId != ''
+            && isTournamentAdmin(resource.data.tournamentId)
+          )
+        );
 
       // ── Ball events subcollection ──────────────────────────────────────────
       // CRITICAL FIX: was 'balls' but all code uses 'ballEvents'
@@ -194,20 +221,33 @@ service cloud.firestore {
         // PUBLIC: anyone can read ball events (for scorecard replay)
         allow read: if true;
 
-        // Admin or scorer can write ball events
+        // Admin, scorer, or match creator can write ball events
         allow create, update: if isVerifiedUser()
           && (
-            isTournamentAdmin(
-              get(/databases/$(database)/documents/liveGameStates/$(matchId)).data.tournamentId
-            )
-            || isScorer(
-              get(/databases/$(database)/documents/liveGameStates/$(matchId)).data.tournamentId
+            get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+            || (
+              get(/databases/$(database)/documents/matches/$(matchId)).data.tournamentId != ''
+              && (
+                isTournamentAdmin(
+                  get(/databases/$(database)/documents/matches/$(matchId)).data.tournamentId
+                )
+                || isScorer(
+                  get(/databases/$(database)/documents/matches/$(matchId)).data.tournamentId
+                )
+              )
             )
           );
 
+        // Admin or match creator can delete ball events
         allow delete: if isVerifiedUser()
-          && isTournamentAdmin(
-            get(/databases/$(database)/documents/liveGameStates/$(matchId)).data.tournamentId
+          && (
+            get(/databases/$(database)/documents/matches/$(matchId)).data.createdBy == request.auth.uid
+            || (
+              get(/databases/$(database)/documents/matches/$(matchId)).data.tournamentId != ''
+              && isTournamentAdmin(
+                get(/databases/$(database)/documents/matches/$(matchId)).data.tournamentId
+              )
+            )
           );
       }
     }
@@ -218,7 +258,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && isTournamentAdmin(resource.data.tournamentId);
     }
 
     // ── Points Table collection ──────────────────────────────────────────────
@@ -227,7 +267,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && isTournamentAdmin(resource.data.tournamentId);
     }
 
     // ── Player Stats collection ──────────────────────────────────────────────
@@ -236,7 +276,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && isTournamentAdmin(resource.data.tournamentId);
     }
 
     // ── Team Stats collection ────────────────────────────────────────────────
@@ -245,7 +285,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && isTournamentAdmin(resource.data.tournamentId);
     }
 
     // ── Notifications collection ─────────────────────────────────────────────
@@ -266,7 +306,7 @@ service cloud.firestore {
       allow create: if isVerifiedUser()
         && isTournamentAdmin(request.resource.data.tournamentId);
       allow update, delete: if isVerifiedUser()
-        && isTournamentAdmin(request.resource.data.tournamentId);
+        && isTournamentAdmin(resource.data.tournamentId);
     }
 
     // ── Deny everything else ─────────────────────────────────────────────────

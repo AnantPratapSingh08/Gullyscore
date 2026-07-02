@@ -20,8 +20,26 @@ import {
   type Unsubscribe,
   increment,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
 import type { Team, Player, TeamCreatePayload } from '../types/team'
+import { assertTournamentAdmin } from '../utils/tournamentGuard'
+
+async function assertAdminForTournament(tournamentId: string): Promise<void> {
+  if (!tournamentId) return
+  const user = auth.currentUser
+  if (!user) throw new Error('Unauthenticated')
+  const snap = await getDoc(doc(db, 'tournaments', tournamentId))
+  if (snap.exists()) {
+    assertTournamentAdmin({ adminId: snap.data().adminId, name: snap.data().name }, user.uid)
+  }
+}
+
+async function assertAdminForTeamDoc(teamId: string): Promise<void> {
+  const snap = await getDoc(doc(db, 'teams', teamId))
+  if (snap.exists() && snap.data().tournamentId) {
+    await assertAdminForTournament(snap.data().tournamentId)
+  }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,6 +94,7 @@ function docToPlayer(id: string, data: Record<string, unknown>): Player {
 export async function createTeam(
   payload: Omit<TeamCreatePayload, 'createdAt' | 'playerCount' | 'inviteCode'>
 ): Promise<string> {
+  if (payload.tournamentId) await assertAdminForTournament(payload.tournamentId)
   const teamsRef = collection(db, 'teams')
   const docRef = await addDoc(teamsRef, {
     ...payload,
@@ -111,11 +130,13 @@ export async function updateTeam(
   teamId: string,
   updates: Partial<Pick<Team, 'teamName' | 'logo' | 'captain'>>
 ): Promise<void> {
+  await assertAdminForTeamDoc(teamId)
   await updateDoc(doc(db, 'teams', teamId), updates)
 }
 
 /** Delete a team and all its players */
 export async function deleteTeam(teamId: string): Promise<void> {
+  await assertAdminForTeamDoc(teamId)
   // Delete all players in the team first
   const playersSnap = await getDocs(
     query(collection(db, 'players'), where('teamId', '==', teamId))
@@ -128,6 +149,7 @@ export async function deleteTeam(teamId: string): Promise<void> {
 
 /** Regenerate the invite code for a team */
 export async function regenerateInviteCode(teamId: string): Promise<string> {
+  await assertAdminForTeamDoc(teamId)
   const newCode = generateInviteCode()
   await updateDoc(doc(db, 'teams', teamId), { inviteCode: newCode })
   return newCode
@@ -255,6 +277,7 @@ export async function addPlayer(
   teamId: string,
   playerData: { name: string; role: Player['role']; addedBy: string }
 ): Promise<string> {
+  await assertAdminForTeamDoc(teamId)
   const teamSnap = await getDoc(doc(db, 'teams', teamId))
   const teamData = teamSnap.exists() ? teamSnap.data() : null
   const tournamentId = teamData?.tournamentId ?? ''
@@ -273,6 +296,7 @@ export async function addPlayer(
 
 /** Remove a player from a team */
 export async function removePlayer(teamId: string, playerId: string): Promise<void> {
+  await assertAdminForTeamDoc(teamId)
   await deleteDoc(doc(db, 'players', playerId))
   await updateDoc(doc(db, 'teams', teamId), { playerCount: increment(-1) })
 }
@@ -291,6 +315,7 @@ export async function getTeamPlayers(teamId: string): Promise<Player[]> {
  * Stores up to 11 player IDs in teams/{teamId}.playingXI.
  */
 export async function setTeamPlayingXI(teamId: string, playerIds: string[]): Promise<void> {
+  await assertAdminForTeamDoc(teamId)
   if (playerIds.length > 11) throw new Error('Playing XI cannot have more than 11 players')
   await updateDoc(doc(db, 'teams', teamId), { playingXI: playerIds })
 }
@@ -305,6 +330,7 @@ export async function setTeamCaptain(
   captainName: string,
   viceCaptainId?: string,
 ): Promise<void> {
+  await assertAdminForTeamDoc(teamId)
   await updateDoc(doc(db, 'teams', teamId), {
     captainId,
     captain: captainName,
@@ -319,6 +345,10 @@ export async function updatePlayerProfile(
   playerId: string,
   updates: Partial<Pick<Player, 'jerseyNumber' | 'battingStyle' | 'bowlingStyle' | 'avatarUrl' | 'name' | 'role'>>
 ): Promise<void> {
+  const snap = await getDoc(doc(db, 'players', playerId))
+  if (snap.exists() && snap.data().tournamentId) {
+    await assertAdminForTournament(snap.data().tournamentId)
+  }
   await updateDoc(doc(db, 'players', playerId), updates as Record<string, unknown>)
 }
 
