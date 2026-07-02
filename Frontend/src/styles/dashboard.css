@@ -15,8 +15,9 @@
   align-items: center;
   gap: 1.5rem;
   flex-wrap: wrap;
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 20px;
   padding: 2rem 2.5rem;
   backdrop-filter: blur(10px);
@@ -84,7 +85,8 @@
 
 .dash-action-btn {
   padding: 0.6rem 1.2rem;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border: 1px solid rgba(31, 41, 55, 0.1);
   border-radius: 10px; color: #1F2937;
   font-size: 0.88rem; font-weight: 600;
@@ -145,8 +147,9 @@
 
 .dash-upcoming-card,
 .dash-result-card {
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 12px; padding: 1rem 1.25rem;
   cursor: pointer; transition: all 0.2s ease;
 }
@@ -172,8 +175,9 @@
 }
 
 .dash-stat-card {
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 14px; padding: 1.2rem;
   text-align: center; transition: all 0.2s ease;
 }
@@ -200,7 +204,8 @@
   padding: 0.65rem 0.8rem;
   border-bottom: 1px solid rgba(31, 41, 55, 0.05);
 }
-.dash-table tbody tr:hover { background: rgba(31, 41, 55, 0.05); }
+.dash-table tbody tr:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
 .dash-table-leader td { background: rgba(255, 138, 101,0.04); }
 .dash-table-pts { font-weight: 800; color: #FF8A65; }
 .dash-table td.pos { color: #4ade80; }
@@ -208,8 +213,9 @@
 
 /* ── Join prompt ─────────────────────────────────────────────────────────── */
 .dash-join-prompt {
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 16px; padding: 1.5rem 2rem;
   text-align: center;
 }
@@ -224,7 +230,8 @@
 
 .dash-join-input {
   flex: 1; padding: 0.65rem 1rem;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border: 1px solid rgba(31, 41, 55, 0.1);
   border-radius: 10px; color: #1F2937;
   font-size: 1rem; font-weight: 700; letter-spacing: 0.12em;
@@ -261,7 +268,8 @@
 
 .ts-trigger {
   display: flex; align-items: center; gap: 0.5rem;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border: 1px solid rgba(31, 41, 55, 0.1);
   border-radius: 10px; padding: 0.45rem 0.9rem;
   color: #1F2937; font-size: 0.84rem; font-weight: 600;
@@ -314,7 +322,8 @@
   cursor: pointer; transition: all 0.15s ease;
   font-family: 'Inter', sans-serif; text-align: left;
 }
-.ts-option:hover { background: rgba(31, 41, 55, 0.05); color: #1F2937; }
+.ts-option:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); color: #1F2937; }
 .ts-option--active { background: rgba(255, 138, 101,0.08); color: #FF8A65; }
 
 .ts-option-logo { font-size: 1.1rem; flex-shrink: 0; }
@@ -330,7 +339,8 @@
 .ts-option-check { font-size: 0.85rem; color: #FF8A65; }
 
 .ts-dropdown-divider {
-  height: 1px; background: rgba(31, 41, 55, 0.05);
+  height: 1px; background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   margin: 0.4rem 0.5rem;
 }
 
@@ -345,7 +355,8 @@
   font-family: 'Inter', sans-serif;
   text-align: left;
 }
-.ts-manage-link:hover { background: rgba(31, 41, 55, 0.05); color: #6B7280; }
+.ts-manage-link:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); color: #6B7280; }
 
 /* ── Shell tournament bar (mobile) ──────────────────────────────────────── */
 .shell-tournament-bar {
@@ -364,8 +375,9 @@
 
 .dash-nav-card {
   appearance: none; -webkit-appearance: none;
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   font-family: 'Inter', sans-serif; text-align: left; color: inherit;
   position: relative; overflow: hidden; border-radius: 18px;
   padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;
@@ -432,8 +444,9 @@
   gap: 1rem;
   padding: 0.9rem 1.2rem;
   border-radius: 14px;
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
@@ -470,8 +483,9 @@
   align-items: center;
   padding: 0.85rem 0.5rem;
   border-radius: 12px;
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   text-align: center;
 }
 .dash-mystats-value {
@@ -494,7 +508,8 @@
 .dash-action-btn {
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border: 1px solid rgba(31, 41, 55, 0.1);
   color: #6B7280;
   font-size: 0.82rem; font-weight: 600;

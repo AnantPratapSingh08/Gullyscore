@@ -101,7 +101,8 @@ body {
   box-shadow: 0 8px 30px rgba(0,0,0,0.1);
 }
 .btn--ghost {
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   color: var(--text);
   border: 1px solid var(--border);
   backdrop-filter: blur(10px);
@@ -366,7 +367,8 @@ body {
   margin: 0 auto;
   aspect-ratio: 1 / 1.1;
   border-radius: var(--radius-lg);
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border: 1px solid rgba(31, 41, 55, 0.1);
   backdrop-filter: blur(20px);
   overflow: hidden;

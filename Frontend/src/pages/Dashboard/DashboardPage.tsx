@@ -199,7 +199,7 @@ function PointsTable({ tournament, entries }: { tournament: { name: string, logo
       <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid rgba(31, 41, 55, 0.05)' }}>
         <table className="dash-table" style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: 'rgba(31, 41, 55, 0.02)', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
               <th style={{ padding: '12px 14px', textAlign: 'left', width: 40 }}>#</th>
               <th style={{ padding: '12px 14px', textAlign: 'left' }}>Team</th>
               <th style={{ padding: '12px 14px', textAlign: 'center', width: 45 }}>P</th>
@@ -214,7 +214,7 @@ function PointsTable({ tournament, entries }: { tournament: { name: string, logo
           <tbody>
             {sorted.map((row, i) => {
               const isPlayoffs = i < 4
-              const rowBg = i % 2 === 0 ? 'rgba(31, 41, 55, 0.02)' : 'transparent'
+              const rowBg = i % 2 === 0 ? '#f8fafc' : 'transparent'
               const borderLeftStyle = isPlayoffs 
                 ? '4px solid #10b981' // Green indicator for playoffs
                 : '4px solid transparent'
@@ -282,7 +282,7 @@ function PointsTable({ tournament, entries }: { tournament: { name: string, logo
           padding: '8px 14px', 
           fontSize: 10, 
           color: '#64748b', 
-          background: 'rgba(31, 41, 55, 0.05)', 
+          background: '#ffffff', 
           display: 'flex', 
           alignItems: 'center', 
           gap: 5,

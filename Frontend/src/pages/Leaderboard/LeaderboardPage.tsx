@@ -79,7 +79,7 @@ function PlayerStatsTable({ entries, cat }: { entries: PlayerRankEntry[]; cat: C
     <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid rgba(31, 41, 55, 0.05)' }}>
       <table className="dash-table" style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={{ background: 'rgba(31, 41, 55, 0.02)', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
+          <tr style={{ background: '#f8fafc', borderBottom: '1px solid rgba(31, 41, 55, 0.05)' }}>
             <th style={{ padding: '12px 14px', textAlign: 'left', width: 60 }}>Rank</th>
             <th style={{ padding: '12px 14px', textAlign: 'left' }}>Player</th>
             <th style={{ padding: '12px 14px', textAlign: 'left' }}>Team</th>
@@ -103,7 +103,7 @@ function PlayerStatsTable({ entries, cat }: { entries: PlayerRankEntry[]; cat: C
         </thead>
         <tbody>
           {entries.map((e, i) => {
-            const rowBg = i % 2 === 0 ? 'rgba(31, 41, 55, 0.02)' : 'transparent'
+            const rowBg = i % 2 === 0 ? '#f8fafc' : 'transparent'
             return (
               <tr 
                 key={e.playerId} 

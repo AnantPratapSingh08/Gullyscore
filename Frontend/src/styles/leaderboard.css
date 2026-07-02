@@ -46,8 +46,9 @@
 .lb-tabs {
   display: flex;
   gap: 4px;
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 14px;
   padding: 5px;
   margin-bottom: 28px;
@@ -72,7 +73,8 @@
   gap: 6px;
   flex-shrink: 0;
 }
-.lb-tab:hover { color: #1F2937; background: rgba(31, 41, 55, 0.05); }
+.lb-tab:hover { color: #1F2937; background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
 .lb-tab--active {
   background: rgba(255, 138, 101,0.12);
   color: #FF8A65;
@@ -86,8 +88,9 @@
 
 /* ── Section card ─────────────────────────────────────────────────────────── */
 .lb-section {
-  background: rgba(31, 41, 55, 0.05);
-  border: 1px solid rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 20px;
   overflow: hidden;
   animation: fadeInUp 0.4s ease both;
@@ -139,7 +142,8 @@
   padding: 20px 12px;
   border-radius: 16px;
   border: 1px solid transparent;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   transition: transform 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -223,13 +227,15 @@
   transition: background 0.15s ease;
 }
 .lb-row:last-child { border-bottom: none; }
-.lb-row:hover { background: rgba(31, 41, 55, 0.05); }
+.lb-row:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
 .lb-row--top { background: rgba(245, 158, 11,0.04); }
 .lb-rank {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,7 +293,8 @@
   transition: background 0.15s ease;
 }
 .lb-team-row:last-child { border-bottom: none; }
-.lb-team-row:hover { background: rgba(31, 41, 55, 0.05); }
+.lb-team-row:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
 .lb-team-logo { font-size: 28px; line-height: 1; text-align: center; }
 .lb-team-info { min-width: 0; }
 .lb-team-name {
@@ -322,7 +329,8 @@
   grid-template-columns: 44px 1fr repeat(3, auto);
   gap: 12px;
   padding: 10px 24px;
-  background: rgba(31, 41, 55, 0.05);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   border-bottom: 1px solid rgba(31, 41, 55, 0.05);
 }
 .lb-team-thead span {

@@ -50,7 +50,8 @@
   text-decoration:none;color:var(--sub);font-size:14px;font-weight:500;
   transition:all .2s ease;white-space:nowrap;
 }
-.shell-nav-link:hover { background:rgba(31, 41, 55, 0.05);color:var(--text); }
+.shell-nav-link:hover { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);color:var(--text); }
 .shell-nav-link--active { background:rgba(255, 138, 101,.1);color:var(--cyan);font-weight:600; }
 .shell-nav-link-icon { font-size:15px; }
 .shell-nav-right { display:flex;align-items:center;gap:12px;margin-left:auto; }
@@ -100,7 +101,8 @@
 .team-btn--outline { background:transparent;border:1.5px solid rgba(255, 138, 101,.4);color:var(--cyan); }
 .team-btn--outline:hover:not(:disabled) { background:rgba(255, 138, 101,.08);border-color:var(--cyan); }
 .team-btn--ghost { background:var(--surface);border:1px solid var(--border);color:var(--sub); }
-.team-btn--ghost:hover:not(:disabled) { background:rgba(31, 41, 55, 0.05);color:var(--text); }
+.team-btn--ghost:hover:not(:disabled) { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);color:var(--text); }
 .team-btn--sm { padding:7px 14px;font-size:13px; }
 .team-btn:disabled { opacity:.5;cursor:not-allowed;transform:none !important; }
 
@@ -157,7 +159,8 @@
 .modal-actions{ display:flex;gap:12px;justify-content:center; }
 .modal-btn { padding:11px 24px;border-radius:12px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .2s;min-width:100px; }
 .modal-btn--cancel  { background:var(--surface);border:1px solid var(--border);color:var(--sub); }
-.modal-btn--cancel:hover:not(:disabled) { background:rgba(31, 41, 55, 0.05);color:var(--text); }
+.modal-btn--cancel:hover:not(:disabled) { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);color:var(--text); }
 .modal-btn--danger  { background:linear-gradient(135deg,#EF4444,#EF4444);color:#1F2937; }
 .modal-btn--danger:hover:not(:disabled) { transform:translateY(-2px);box-shadow:0 6px 20px rgba(239, 68, 68,.35); }
 .modal-btn--confirm { background:linear-gradient(135deg,#FF8A65,#FFC46B);color: #FFFFFF; }
@@ -186,7 +189,8 @@
 .team-form-required { color:var(--red); }
 .team-form-input {
   width:100%;padding:12px 16px;box-sizing:border-box;
-  background:rgba(31, 41, 55, 0.05);border:1.5px solid rgba(31, 41, 55, 0.1);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);border:1.5px solid rgba(31, 41, 55, 0.1);
   border-radius:12px;color:var(--text);font-family:'Inter',sans-serif;
   font-size:15px;outline:none;transition:all .2s;
 }
@@ -210,7 +214,8 @@
 .team-logo-preview-emoji { font-size:24px;line-height:1; }
 .team-logo-grid { display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:12px;padding:16px;background:rgba(0,0,0,.3);border-radius:14px;border:1px solid var(--border); }
 .team-logo-option { font-size:22px;padding:8px;background:none;border:2px solid transparent;border-radius:10px;cursor:pointer;transition:all .15s;line-height:1; }
-.team-logo-option:hover  { background:rgba(31, 41, 55, 0.05);border-color:rgba(31, 41, 55, 0.1); }
+.team-logo-option:hover  { background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);border-color:rgba(31, 41, 55, 0.1); }
 .team-logo-option.selected{ background:rgba(255, 138, 101,.12);border-color:var(--cyan); }
 
 /* ── Back button ─────────────────────────────────── */
@@ -255,7 +260,8 @@
 .join-panel-input-row { display:flex;gap:12px;flex-wrap:wrap; }
 .join-code-input {
   flex:1;min-width:140px;padding:12px 18px;
-  background:rgba(31, 41, 55, 0.05);border:1.5px solid rgba(255, 138, 101,.25);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);border:1.5px solid rgba(255, 138, 101,.25);
   border-radius:12px;color:#1F2937;font-family:'Inter',sans-serif;
   font-size:18px;font-weight:700;letter-spacing:.2em;outline:none;
   text-transform:uppercase;transition:all .2s;
@@ -444,7 +450,8 @@
 .add-player-form {
   display:grid;grid-template-columns:1fr auto auto;gap:10px;
   align-items:start;margin-bottom:20px;
-  background:rgba(31, 41, 55, 0.05);border:1px solid var(--border);
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);border:1px solid var(--border);
   border-radius:16px;padding:16px;
 }
 
