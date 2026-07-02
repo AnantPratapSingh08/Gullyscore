@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Firebase Storage rules for Admin Media Management System
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Read access for everyone (public images)
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+    
+    // Tournament Logos
+    match /tournaments/{tournamentId}/{imageId} {
+      allow write: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/tournaments/$(tournamentId)).data.adminId == request.auth.uid;
+    }
+    
+    // Team Logos
+    match /teams/{teamId}/{imageId} {
+      allow write: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/tournaments/$(firestore.get(/databases/(default)/documents/teams/$(teamId)).data.tournamentId)).data.adminId == request.auth.uid;
+    }
+    
+    // Player Avatars
+    match /players/{playerId}/{imageId} {
+      allow write: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/tournaments/$(firestore.get(/databases/(default)/documents/teams/$(firestore.get(/databases/(default)/documents/players/$(playerId)).data.teamId)).data.tournamentId)).data.adminId == request.auth.uid;
+    }
+  }
+}

@@ -14,8 +14,8 @@ const storage = getStorage(app)
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE_MB = 5
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+const MAX_FILE_SIZE_MB = 2
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 // ── Validators ────────────────────────────────────────────────────────────────
 
@@ -41,20 +41,66 @@ export function fileToDataUrl(file: File): Promise<string> {
   })
 }
 
+/** Compress an image using HTML5 Canvas before uploading. */
+export async function compressImage(file: File, maxWidth = 800): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: file.type,
+                lastModified: Date.now(),
+              })
+              resolve(compressedFile)
+            } else {
+              reject(new Error('Canvas to Blob failed'))
+            }
+          },
+          file.type === 'image/webp' ? 'image/webp' : 'image/jpeg',
+          0.85
+        )
+      }
+      img.onerror = () => reject(new Error('Failed to load image for compression'))
+      img.src = event.target?.result as string
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
 // ── Storage upload helpers ────────────────────────────────────────────────────
 
 /** Upload to Firebase Storage; falls back to Base64 data URL on failure. */
 async function uploadWithFallback(
   storagePath: string,
-  file: File,
+  rawFile: File,
 ): Promise<string> {
   try {
+    const file = await compressImage(rawFile)
     const storageRef = ref(storage, storagePath)
     await uploadBytes(storageRef, file, { contentType: file.type })
     return await getDownloadURL(storageRef)
   } catch (err) {
     console.warn('[imageService] Storage upload failed, using Base64 fallback:', err)
-    return fileToDataUrl(file)
+    return fileToDataUrl(rawFile)
   }
 }
 
