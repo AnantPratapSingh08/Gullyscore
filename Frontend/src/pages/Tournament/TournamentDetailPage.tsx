@@ -148,7 +148,7 @@ function PointsTable({ tournament, table }: { tournament: Tournament, table: Poi
             tournament.logo,
             table.map((r, i) => ({
               rank: i + 1, team: r.teamName, logo: r.teamLogo, played: r.played, won: r.won, lost: r.lost,
-              nr: (r.nr || 0) + (r.tied || 0), nrr: r.nrr.toFixed(3), points: r.points, form: r.form?.join('') || ''
+              nr: (r.nr || 0) + (r.tied || 0), nrr: (Number(r.nrr) || 0).toFixed(3), points: r.points, form: r.form?.join('') || ''
             }))
           )}
         >

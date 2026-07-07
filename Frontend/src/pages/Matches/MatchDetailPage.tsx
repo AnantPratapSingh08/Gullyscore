@@ -476,7 +476,7 @@ function downloadPDFScorecard(match: Match) {
   const innings1 = {
     teamName: match.team1Name,
     score: `${match.team1Score}/${match.team1Wickets}`,
-    overs: match.team1Overs.toFixed(1),
+    overs: (Number(match.team1Overs) || 0).toFixed(1),
     batsmen: mapBatsmen(match.innings1),
     bowlers: mapBowlers(match.innings1),
     extras: match.innings1?.extras || 0
@@ -484,7 +484,7 @@ function downloadPDFScorecard(match: Match) {
   const innings2 = match.innings2 ? {
     teamName: match.team2Name,
     score: `${match.team2Score}/${match.team2Wickets}`,
-    overs: match.team2Overs.toFixed(1),
+    overs: (Number(match.team2Overs) || 0).toFixed(1),
     batsmen: mapBatsmen(match.innings2),
     bowlers: mapBowlers(match.innings2),
     extras: match.innings2?.extras || 0

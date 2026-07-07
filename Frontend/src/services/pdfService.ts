@@ -16,10 +16,36 @@ const CLR = {
   purple:  '#a78bfa',
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
+function stripEmojis(str: string): string {
+  if (!str) return ''
+  return String(str).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{2B50}]/gu, '').trim()
+}
+
+function hexToRgb(color: string): [number, number, number] {
+  if (color.startsWith('rgb')) {
+    const match = color.match(/[\d.]+/g)
+    if (match && match.length >= 3) {
+      const r = parseInt(match[0], 10)
+      const g = parseInt(match[1], 10)
+      const b = parseInt(match[2], 10)
+      if (match.length >= 4) {
+        const a = parseFloat(match[3])
+        return [
+          Math.round(r * a + 10 * (1 - a)),
+          Math.round(g * a + 15 * (1 - a)),
+          Math.round(b * a + 30 * (1 - a))
+        ]
+      }
+      return [r, g, b]
+    }
+  }
+  let hex = color.startsWith('#') ? color.slice(1) : color
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
+  }
+  const r = parseInt(hex.slice(0, 2), 16) || 0
+  const g = parseInt(hex.slice(2, 4), 16) || 0
+  const b = parseInt(hex.slice(4, 6), 16) || 0
   return [r, g, b]
 }
 
@@ -47,23 +73,23 @@ function drawHeader(pdf: jsPDF, title: string, subtitle: string, logo?: string) 
   // Logo/emoji (left side)
   if (logo) {
     pdf.setFontSize(22)
-    pdf.text(logo, 14, 20)
+    pdf.text(stripEmojis(logo), 14, 20)
   }
 
   const x = logo ? 34 : 14
   setTextColor(pdf, CLR.accent)
   pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('GULLYSCORE', x, 12)
+  pdf.text(stripEmojis('GULLYSCORE'), x, 12)
 
   setTextColor(pdf, CLR.text)
   pdf.setFontSize(16)
-  pdf.text(title, x, 24)
+  pdf.text(stripEmojis(title), x, 24)
 
   setTextColor(pdf, CLR.muted)
   pdf.setFontSize(8)
   pdf.setFont('helvetica', 'normal')
-  pdf.text(subtitle, x, 33)
+  pdf.text(stripEmojis(subtitle), x, 33)
 
   // Date stamp
   setTextColor(pdf, CLR.muted)
@@ -80,7 +106,7 @@ function drawSection(pdf: jsPDF, title: string, y: number): number {
   setTextColor(pdf, CLR.accent)
   pdf.setFontSize(9)
   pdf.setFont('helvetica', 'bold')
-  pdf.text(title, 14, y + 7)
+  pdf.text(stripEmojis(title), 14, y + 7)
   return y + 14
 }
 
@@ -116,7 +142,7 @@ function drawTable(
     const cw = col.width * scale
     setTextColor(pdf, CLR.muted)
     const tx = col.align === 'right' ? cx + cw - 2 : col.align === 'center' ? cx + cw / 2 : cx + 2
-    pdf.text(col.label.toUpperCase(), tx, y + 6.5, { align: col.align === 'right' ? 'right' : col.align === 'center' ? 'center' : 'left' })
+    pdf.text(stripEmojis(col.label.toUpperCase()), tx, y + 6.5, { align: col.align === 'right' ? 'right' : col.align === 'center' ? 'center' : 'left' })
     cx += cw
   }
   y += HEADER_H
@@ -148,7 +174,7 @@ function drawTable(
       pdf.setFontSize(7.5)
       setTextColor(pdf, CLR.text)
       const tx = col.align === 'right' ? cx + cw - 2 : col.align === 'center' ? cx + cw / 2 : cx + 2
-      pdf.text(val, tx, y + 5.5, { align: col.align === 'right' ? 'right' : col.align === 'center' ? 'center' : 'left' })
+      pdf.text(stripEmojis(val), tx, y + 5.5, { align: col.align === 'right' ? 'right' : col.align === 'center' ? 'center' : 'left' })
       cx += cw
     }
 
@@ -209,7 +235,7 @@ export function exportPointsTablePDF(
 ): void {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   initPage(pdf)
-  drawHeader(pdf, 'Points Table', tournamentName, tournamentLogo.startsWith('http') ? undefined : tournamentLogo)
+  drawHeader(pdf, 'Points Table', tournamentName, tournamentLogo?.startsWith('http') ? undefined : tournamentLogo)
 
   let y = 48
   y = drawSection(pdf, '🏆 STANDINGS', y)
@@ -228,7 +254,7 @@ export function exportPointsTablePDF(
 
   const tableRows = rows.map(r => ({
     rank:   r.rank,
-    team:   `${r.logo} ${r.team}`,
+    team:   r.team,
     played: r.played,
     won:    r.won,
     lost:   r.lost,
@@ -240,7 +266,7 @@ export function exportPointsTablePDF(
 
   drawTable(pdf, cols, tableRows, y, (_, i) => i === 0 ? 'rgba(34,211,238,0.08)' : null)
   drawFooter(pdf)
-  pdf.save(`${tournamentName.replace(/\s+/g, '_')}_Points_Table.pdf`)
+  pdf.save(`${(tournamentName || 'Tournament').replace(/\s+/g, '_')}_Points_Table.pdf`)
 }
 
 // ── 2. Player Stats PDF ───────────────────────────────────────────────────────
@@ -269,7 +295,7 @@ export function exportPlayerStatsPDF(
 ): void {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   initPage(pdf)
-  drawHeader(pdf, 'Player Statistics', tournamentName, tournamentLogo.startsWith('http') ? undefined : tournamentLogo)
+  drawHeader(pdf, 'Player Statistics', tournamentName, tournamentLogo?.startsWith('http') ? undefined : tournamentLogo)
 
   let y = 48
 
@@ -307,7 +333,7 @@ export function exportPlayerStatsPDF(
   drawTable(pdf, bowlingCols, bowlSorted, y)
 
   drawFooter(pdf)
-  pdf.save(`${tournamentName.replace(/\s+/g, '_')}_Player_Stats.pdf`)
+  pdf.save(`${(tournamentName || 'Tournament').replace(/\s+/g, '_')}_Player_Stats.pdf`)
 }
 
 // ── 3. Match Scorecard PDF ────────────────────────────────────────────────────
@@ -430,5 +456,5 @@ export function exportScorecardPDF(
   if (innings2) renderInnings(innings2)
 
   drawFooter(pdf)
-  pdf.save(`${matchTitle.replace(/\s+/g, '_')}_Scorecard.pdf`)
+  pdf.save(`${(matchTitle || 'Match').replace(/\s+/g, '_')}_Scorecard.pdf`)
 }

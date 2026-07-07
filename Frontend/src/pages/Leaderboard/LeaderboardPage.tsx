@@ -274,22 +274,29 @@ export default function LeaderboardPage() {
   const activeCat = CATEGORIES.find(c => c.key === activeKey)!
 
   const handleExportStats = () => {
-    if (!data || !activeTournament) return
+    if (!data) return
+    const tName = activeTournament?.name || 'Global Leaderboard'
+    const tLogo = activeTournament?.logo || ''
+    
     const map = new Map<string, any>()
     const getPlayer = (id: string, name: string, team: string) => {
       if (!map.has(id)) map.set(id, { name, team, role: 'Player', matches: 0, runs: 0, hs: '-', avg: '-', sr: '-', fours: 0, sixes: 0, wickets: 0, economy: '-', catches: 0 })
       return map.get(id)
     }
     
-    data.topRunScorers.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.runs = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
-    data.topWicketTakers.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.wickets = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
-    data.mostSixes.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sixes = e.value })
-    data.mostFours.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.fours = e.value })
-    data.bestStrikeRate.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sr = e.value.toFixed(2) })
-    data.bestEconomy.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.economy = e.value.toFixed(2) })
+    data.topRunScorers?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.runs = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
+    data.topWicketTakers?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.wickets = e.value; p.matches = Math.max(p.matches, e.secondary || 0) })
+    data.mostSixes?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sixes = e.value })
+    data.mostFours?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.fours = e.value })
+    data.bestStrikeRate?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.sr = (Number(e.value) || 0).toFixed(2) })
+    data.bestEconomy?.forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.economy = (Number(e.value) || 0).toFixed(2) })
     ;(data.mostCatches || []).forEach(e => { const p = getPlayer(e.playerId, e.playerName, e.teamName); p.catches = e.value })
     
-    exportPlayerStatsPDF(activeTournament.name, activeTournament.logo, Array.from(map.values()))
+    try {
+      exportPlayerStatsPDF(tName, tLogo, Array.from(map.values()))
+    } catch (err: any) {
+      alert("PDF Error: " + (err.message || err.toString()) + "\nStack: " + err.stack)
+    }
   }
 
   return (
